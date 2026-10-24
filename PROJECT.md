@@ -76,8 +76,8 @@ elapsed time does not grant approval. No config files or services were changed.
 
 A passive 12-second idle capture received no reports. This establishes only
 that no unsolicited reports were observed during that interval; initialization,
-subscription or polling may still be needed. The passive listener opens HID read-only. The diagnostic transmit CLI is now
-disabled; offline transport tests remain. The supervisor sandbox
+subscription or polling may still be needed. The passive listener opens HID read-only; the model-bound `eq-read` sends
+only its verified read request. The supervisor sandbox
 exposes sysfs but not `/dev/hidraw9`; its listener exits visibly with ENOENT.
 The earlier worker successfully captured from the host environment.
 
@@ -90,12 +90,16 @@ node, but does not establish whether queried control/status reads work.
 
 ## Continuation status
 
-Worker **Astra-native-read** (Claude) bound the A50 model in Ghidra, replaced
+The supervisor bound the A50 model in Ghidra and exported its evidence.
+Worker **Astra-native-read** (Claude) implemented the protocol note, replaced
 the disabled `eq-read` with the real opcode-`0x69` request, and ran the single
 authorized live read (slot 1) against Ben's connected A50 — success, see
 above. Read-only worker **Astra-vtables**,
 `0d283f16-df8a-439b-b22b-6ec6cddc844f`, was dispatched in parallel for the
-same class-binding lookup; collect its result before re-running that search.
+same class-binding lookup and reproduced the constructor/vtables. It was
+stopped after the exact PID15 binding and live read were verified. No workers
+remain active. The private REA snapshot and raw dossiers are recorded in
+[[HANDOFF]] for continuation without this conversation.
 See [[HANDOFF]] for prior worker history.
 
 ## Boundaries

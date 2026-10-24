@@ -1,2 +1,5 @@
 # Preserved proprietary Windows app trees + personal settings. NEVER commit.
 artifacts/
+
+# Generated Python bytecode
+__pycache__/

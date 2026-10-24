@@ -70,3 +70,12 @@ fd's USB identity before output, check a complete64-byte write, bound the
 read wait, and validate all response fields above. No raw opcode option,
 page argument, setters, resets, firmware operations, or guessed initialization.
 If the exact read returns an error, retain it; do not expand the request space.
+
+## Live verification
+
+The native-read worker subsequently ran the exact slot1 read once, successfully.
+Full request/reply bytes and both decoded banks are retained in
+`evidence/a50-eq-read-slot1.json`. Code checks the opened fd identity, full write,
+timeout, sequence, status, echo and payload length. Bank roles and settings
+writes remain unverified. The supervisor snapshot is
+`artifacts/analysis/a50-root-snapshot.json`; raw dossiers are beside it.

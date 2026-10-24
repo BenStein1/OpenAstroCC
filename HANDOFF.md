@@ -44,8 +44,8 @@ interpretation; none returned five decoded A50 gains. Page1 semantics remain
 unknown. No intentional settings writes were attempted, but no before/after
 state readback established whether device settings were unchanged.
 
-**The live `eq-read` CLI is now disabled and refuses to transmit; the unsupported
-transmit helper has been removed.** Retain the
+**At that checkpoint the A20-derived transmit helper was removed. The current
+CLI uses the separately verified A50 request described above.** Retain the
 captured results and offline transport tests; do not recommend rerunning this
 A20-derived request. The timeout backend's concrete virtual override has not
 been located. Import/call-site searches do not prove it lives in a missing DLL.
@@ -58,10 +58,10 @@ out the "bind `9886:0015` to `Devices::AstroA50`" step this section used to
 describe as open.
 
 Read-only worker **Astra-vtables**, `0d283f16-df8a-439b-b22b-6ec6cddc844f`,
-was dispatched in parallel for the same class-binding lookup; it is
-read-only (no file edits, no hardware access) so it cannot conflict with the
-`tools/a50.py` changes here, but collect its Nori `get_worker` result and
-reconcile before treating its findings as new.
+independently reproduced the constructor/vtable path and investigated the
+factory registry. It was stopped after the supervisor completed the exact
+PID15 binding and the native-read worker validated the read, avoiding duplicate
+work. No worker remains active.
 
 Next concrete step: docs/A50-PROTOCOL.md notes the same initializer also
 issues opcode `0x70` with slot 1–3 and band 1–5 to read coefficients. Trace
@@ -125,9 +125,13 @@ Key procedures from the first pass:
 | `0x490620`/`0x479f70` | Generic send/wait wrapper and its reply-shape comparison (declared length vs. app packet offset 2) used by the `0x69` read |
 
 Evidence IDs and analysis profile digest are in docs/FINDINGS.md §15.
-Those IDs may be tied to the original REA session: raw native evidence has not
-been exported into a verified portable bundle. If unavailable, reproduce focused
-decompilation at the addresses above and retain/export the new evidence locally.
+The supervisor exported a provider-neutral snapshot to ignored
+`artifacts/analysis/a50-root-snapshot.json` (15,118,223 bytes; 13 primitive
+bindings, 17 evidence records), and saved individual A50 dossiers beside it.
+Resume with REA open_binary using the preserved EXE and that snapshot_path,
+subject to matching artifact/provider/profile validation. Earlier worker IDs
+may still be session-bound; use the snapshot and A50-PROTOCOL.md for the verified
+class path.
 Do not commit proprietary code dumps or personal app state.
 
 ## Next engineering work

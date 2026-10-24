@@ -11,7 +11,7 @@ request, which docs/FINDINGS.md §14.3 traced to `Devices::AstroA20`
 Subcommands:
   inventory   identify the device and its audio topology from sysfs/procfs
   listen      passively read HID input reports and decode their framing
-  eq          decode a .astroeq preset into the device's on-wire representation
+  eq          decode and validate an offline .astroeq preset
   eq-read     read EQ gain bytes for one slot (opcode 0x69); see docs/A50-PROTOCOL.md
   selftest    assert the decoders behave (no hardware needed)
 """
@@ -400,7 +400,7 @@ def cmd_eq_read(args):
 
 def cmd_eq(args):
     preset = load_astroeq(args.path)
-    enc = encode_eq(preset)
+    encode_eq(preset)  # Validate preset fields; no A50 write packet is implied.
     print("preset: %s" % preset["name"])
     print("\n%-6s %8s %8s %10s" % ("band", "gain dB", "freq Hz", "bw oct"))
     for i in range(BANDS):
@@ -409,17 +409,6 @@ def cmd_eq(args):
         print("%-6d %8d %8d %10s" % (
             band, preset["gains"][i], preset["freqs"][i],
             bw if bw is not None else "-"))
-    print("\ndevice encoding (docs/FINDINGS.md §5):")
-    print("  gains (int8 x5)      : %s" % enc["gains"].hex(" "))
-    print("  freqs (LE u16 x5)    : %s" % enc["freqs"].hex(" "))
-    for band, raw in sorted(enc["bandwidths"].items()):
-        print("  bandwidth band %d     : %s (raw %d, 4.12 fixed)" % (
-            band, raw.hex(" "), int.from_bytes(raw, "little")))
-    print("\nRead-request packets for slot 0 (built, not sent):")
-    for cmd, label in ((0x63, "gains"), (0x64, "freqs")):
-        for page in (0, 1):
-            pkt = frame(cmd, bytes([page, 0]))
-            print("  %-6s page %d: %s" % (label, page, pkt[:8].hex(" ") + " ..."))
     return 0
 
 
