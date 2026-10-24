@@ -1,55 +1,55 @@
 # Astro A50 Linux — continuation handoff
 
-Updated 2026-10-24 (Astra-read-path pass). Read PROJECT.md for the Obsidian
-status; docs/FINDINGS.md contains the detailed evidence ledger, including new
-§14 (transport/reply-matching trace + a live device test). The CLI is an
-investigation foundation, not a finished Command Center replacement. No
-settings were changed on the device; `tools/a50.py eq-read` sends one proven
-read-only request and nothing else (see below). No audio profile changes
-have been performed.
+Updated 2026-10-24. Start with PROJECT.md and docs/FINDINGS.md §14.
+This remains an investigation utility, not working Command Center support.
 
-## This pass: wire protocol proven live; wrong device class identified (not a dead end)
+## Current correction and live results
 
-`tools/a50.py eq-read --slot N --page {0,1}` sends the decompiled
-KUIPER_RW_EQ_GAINS read request (opcode `0x63`, payload `{page,slot}`) and
-validates the reply exactly as the decompiled app does (status byte `0x02`,
-2-bit sequence match — see FINDINGS.md §14.2). Static evidence for this is
-now complete: the full send→transport→wait→verify chain is traced down to
-the point where the concrete blocking-read implementation leaves this EXE
-(`ReadFile` has a single call site in the whole binary, inside the
-already-documented write path — the read/timeout side is in a vendor DLL not
-in the preserved tree).
+The previous pass traced `0x4800a0` to a resolved caller at `0x477770`, whose
+constructor identifies `Devices::AstroA20`, PID `0x1c`. That does not bind the
+reader to Ben's A50 PID `0x15`. Virtual/shared callers remain unresolved.
+The earlier EQ/sidetone/noise-gate opcode claims must be treated as unverified
+for A50 until tied to its registration/vtable path.
 
-Run live against Ben's connected A50 (`/dev/hidraw9` present this session),
-all 6 slot×page combinations the CLI exposes: slot 0-2/page 0 all returned a
-**well-formed, correctly-sequenced structured error**, status `0x01`, code
-`13`, message `HID_ERROR_NO_EQ_WITH_THAT_VALUE`; slot 0-2/page 1 all returned
-status `0x02` (success) but only a 2-byte payload (`63 01`), too short to be
-5 gain bytes. This is not a transport failure — a wrong/garbled packet could
-not produce a correctly-sequenced, legible English error. **The wire protocol
-itself (framing, 2-bit sequence correlation, status-byte/error-packet layout)
-is now confirmed live, not just inferred from the binary.**
+Six requests derived from that reader were sent to Ben's A50 in worker
+`fd0c34b4-9fd0-4e80-9540-af6ea7e0da49` (completed, commit `3ad761d`):
+page 0 with slots 0–2 returned status 1/code13,
+`HID_ERROR_NO_EQ_WITH_THAT_VALUE`; page 1 returned status2 and payload `63 01`
+for each slot. These observations support the shared framing/status/sequence
+interpretation; none returned five decoded A50 gains. Page1 semantics remain
+unknown. No intentional settings writes were attempted, but no before/after
+state readback established whether device settings were unchanged.
 
-Root cause, found statically (not by further live probing): `0x4800a0`'s only
-resolved caller (`0x477770`) is the **`Devices::AstroA20`** constructor —
-registers PID `0x9886:0x1c`, not the A50's `0x15`. A genuinely separate
-`Devices::AstroA50` class hierarchy exists in the binary (confirmed via RTTI
-strings: `AstroA50`, `AstroA50Mimas`, `AstroA50SubDevice`,
-`AstroA50EuropaHeadset`, `AstroA50EuropaMediator`, …, matching the Europa vs
-Mimas split in §6). **`0x4800a0` is the A20's EQ reader, not confirmed for
-A50.** `AstroA50`/`AstroA50EuropaHeadset` likely has its own sibling function
-reached via a vtable this pass did not resolve. See FINDINGS.md §14.3 for the
-full evidence chain.
+**The live `eq-read` CLI is now disabled and refuses to transmit; the unsupported
+transmit helper has been removed.** Retain the
+captured results and offline transport tests; do not recommend rerunning this
+A20-derived request. The timeout backend's concrete virtual override has not
+been located. Import/call-site searches do not prove it lives in a missing DLL.
+No audio profile change, firmware action, or reset has been performed.
 
-**Next step is static, not another live probe:** locate the
-`AstroA50`/`AstroA50EuropaHeadset` vtable (via its RTTI typeinfo at
-`0x663c4c` or the `AstroA50` constructor, by the same pattern as `0x477770`)
-and walk its virtual function table for the sibling of `0x4800a0`. Do not
-brute-force more slot/page/opcode combinations against the live device —
-that crosses into guessed-packet territory this project explicitly avoids.
-The `eq-read` CLI itself is correct and kept as-is; it is a faithful,
-narrowly-scoped implementation of the proven wire mechanics, just aimed at
-what turned out to be the wrong device class's opcode.
+## Active work and next concrete target
+
+Ben says Claude still has session capacity. Skip Gemini. LiteLLM must use
+`nvidia-free-reasoning` or `nvidia-free-fast`; the paid Merge route is depleted.
+The NVIDIA reasoning attempt `7311268f-2653-4db5-bf77-337ba8fff0fe` was cancelled
+before edits because it proposed insufficiently evidenced generic queries.
+Claude Sonnet `e2820188-e77a-4dd5-8c01-ba0b9e5b665a` disabled the live command
+and began correcting FINDINGS, then stalled and was cancelled. The supervisor
+is preserving/reviewing those corrections. Do not resume its old live probe.
+
+Read-only worker **Astra-vtables**, `0d283f16-df8a-439b-b22b-6ec6cddc844f`,
+is dispatched with `litellm/nvidia-free-fast` to locate the actual A50
+constructor, VID/PID registration and vtables. Collect its Nori get_worker
+result before launching duplicate work. It is not authorized to edit files
+or access hardware. Dispatch/running status is not proof of results.
+
+Next: bind the `9886:0015` registration to `Devices::AstroA50` and its Europa
+subdevices; start from RTTI string/typeinfo reported near `0x663c4c` but verify
+the address and reference types. Resolve a class-specific harmless read before
+implementation. Preserve exact decompilation and evidence references locally.
+An eventual query transport must verify opened HID identity/interface before
+writing, check a full64-byte write, use bounded timeout/status/sequence checks,
+and expose only an allowlisted model-specific read. No guessed packets.
 
 ## Working tree and verification
 
@@ -74,8 +74,8 @@ Final supervisor checks: selftest passed including all five presets; read-only
 inventory confirmed the USB/audio topology via sysfs/procfs; diff --check passed.
 The supervisor sandbox has no `/dev/hidraw9` despite the sysfs entry, so its
 listener attempt exited cleanly with ENOENT. This is an environment-access limit,
-not evidence that the physical headset disappeared. The first worker's host-side
-12-second passive capture is the only successful live HID capture so far.
+not evidence that the physical headset disappeared. The initial passive capture was later followed by the six diagnostic request/
+reply exchanges described above; no successful A50 settings read was decoded.
 
 ## Preserved analysis target
 
@@ -94,7 +94,7 @@ Key procedures from the first pass:
 | `0x4078f0` | Report serializer: ID 2, body copied after it, padded |
 | `0x404550` | Windows overlapped WriteFile transport |
 | `0x4794f0` | Shared command packet builder; 2-bit sequence |
-| `0x4800a0` | Startup EQ read flow, 3 slots, gains/frequencies/bandwidths |
+| `0x4800a0` | EQ reader reached by resolved A20 constructor; A50 binding unverified |
 | `0x481b80` | Property setter, app-side bounds lookup and sidetone/noise-gate dispatch |
 | `0x4842d2` | Observed `0xDA` call site; unidentified, do not probe |
 

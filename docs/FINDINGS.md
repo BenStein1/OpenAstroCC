@@ -187,7 +187,7 @@ directions — 61 accepted, 62 refused even though the length field could hold i
 Worth stating explicitly because the 6-bit field invites the wrong limit, and an
 over-length buffer would be silently malformed rather than rejected.
 
-## 5. EQ protocol — fully cross-validated
+## 5. Candidate EQ encoding — A20 reader; A50 binding unresolved
 
 `FUN_004800a0` (`0x4800a0`) is the routine whose first act is logging
 `"initializing headset"` — the same line present in Ben's real logs, which ties this
@@ -287,8 +287,8 @@ Named with direct evidence:
 
 | Opcode | Meaning | Feature ID | Evidence |
 |---|---|---|---|
-| `0x63` | EQ band **gains** r/w | — | `KUIPER_RW_EQ_GAINS`, decompiled §5. **High** |
-| `0x64` | EQ band **frequencies** r/w | — | `KUIPER_RW_EQ_FREQS`, decompiled §5. **High** |
+| `0x63` | Candidate EQ gains, A50 binding unverified | — | `KUIPER_RW_EQ_GAINS`, decompiled §5. **High** |
+| `0x64` | Candidate EQ frequencies, A50 binding unverified | — | `KUIPER_RW_EQ_FREQS`, decompiled §5. **High** |
 | `0x66` | **Noise gate** set | `0x23` (35) | `KUIPER_SET_NOISEGATE`, decompiled §8. **High** |
 | `0x68` | **Sidetone** set | `0x25` (37) | `KUIPER_SET_SIDETONE`, decompiled §8. **High** |
 | `0xDA` | — | — | single site `0x4842d2` in `FUN_00484280`. **[UNKNOWN] — treat as dangerous.** |
@@ -366,7 +366,7 @@ covers mic EQ and noise gate, "stream mix" is the mix state. Their opcodes are
 |---|---|
 | Separate Game + Voice playback | **Interfaces identified; playback unverified.** Independent USB audio functions exist. The profile is a likely routing blocker; test §10. |
 | Real channel count | **Measured.** Voice 2ch/48k, Game 6ch/48k, mic 1ch/16k, aux 2ch/48k. Positional rendering unverified. |
-| Three EQ slots | **Protocol understood** (opcodes `0x63`/`0x64`, 3 slots × 5 bands, cross-validated). Not exercised on hardware. |
+| Three EQ slots | **A50 protocol unverified; candidate encoding observed** (opcodes `0x63`/`0x64`, 3 slots × 5 bands, cross-validated). Not exercised on hardware. |
 | Sidetone | **Opcode identified** (`0x68`, feature 37, single byte). Valid range unknown. Not exercised. |
 | Mic noise gate | **Opcode identified** (`0x66`, feature 35, single byte). Not exercised. |
 | Mic EQ | Sub-device `A50Microphone` exists; opcode **[UNKNOWN]**. |
@@ -505,11 +505,15 @@ pseudocode drops:
 
 **`ReadFile` has exactly one resolved call site in this whole EXE** —
 inside `FUN_00404550`, the already-documented write transport (§4) — confirmed
-by `search_procedures` over every analyzed symbol. The blocking read inside
-`vtable[+8]` ("getReport") is therefore implemented by a concrete override
-outside this binary (a vendor HID backend DLL not included in the preserved
-tree), so **no timeout value is traceable from this EXE**. This is an honest
-static limit, not a guess. `ev_30787ba051a762175edd8ac722ebe6175dea3840e8dad2158164971497531b16`
+by `search_procedures` over every analyzed symbol. `vtable[+8]` ("getReport")
+is a virtual call whose concrete override was not located by this pass's
+static searches (resolved call-site enumeration and import listing). That is
+a **bounded static coverage gap**, not proof of where the override lives —
+it is equally consistent with an override inside this same EXE that the
+virtual-dispatch/import searches used here didn't resolve, as with a vendor
+HID backend DLL outside the preserved tree. Either way, **no timeout value is
+traceable by the methods used in this pass**, which is the operative, honest
+limit. `ev_30787ba051a762175edd8ac722ebe6175dea3840e8dad2158164971497531b16`
 
 ### 14.2 The actual reply-validation rule (previously undocumented)
 
@@ -576,9 +580,12 @@ correct for this exact device**, not merely inferred from the Windows binary.
 
 What it also proves: **`0x63`/`{page,slot}` as decompiled from `FUN_004800a0`
 is not the right request for Ben's A50's EQ data**, at least not for
-`slot ∈ {0,1,2}`. Root cause, found statically without further live probing:
+`slot ∈ {0,1,2}`. The strongest static lead toward why, found without further
+live probing, **is not proof that no `AstroA50` caller exists** — it only
+establishes the one resolved, non-virtual call edge; see the caveat
+immediately below before treating this as settled:
 
-`FUN_004800a0`'s only resolved caller is `FUN_00477770`
+`FUN_004800a0`'s only *resolved* caller is `FUN_00477770`
 (`ev_4fae46dfc85eeaca7f905953a4ba07071e868b55e9aa23a4449c1a23ed2f3398`), which
 is the **`Devices::AstroA20`** constructor — not A50. It sets
 `*in_ECX = Devices::AstroA20::vftable`, constructs the string
@@ -612,11 +619,11 @@ opcode. It may be a fixed-shape reply for a different, unrelated meaning of
 `page=1` under this specific (AstroA20-flavored) opcode, consistent with 14.3's
 conclusion that this opcode is not the correct EQ data path for this device.
 
-**No setting was changed.** Every request sent was the proven-read-only
-`0x63`/`{page,slot}` shape; the device's own structured, well-formed error
-response is further evidence of this (a real mutation path would not be
-expected to answer a malformed-for-it read with a clean, documented error
-string).
+**No intentional settings writes were attempted.** The requests were derived
+from a decompiled reader later found to have an A20 constructor as its resolved
+caller. The A50 meaning of page1 remains unknown. Error replies do not prove
+absence of side effects, and no before/after settings readback was performed.
+The live `eq-read` command is disabled pending A50 class binding.
 
 ## 15. Evidence IDs
 

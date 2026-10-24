@@ -26,7 +26,7 @@ and [[docs/HARDWARE-TESTS]] for physical tests. All progress is local to
 - [x] Verify the four preserved trees byte-for-byte and record artifact hashes.
 - [x] Identify USB `9886:0015`, vendor HID reports, and independent audio interfaces.
 - [x] Analyze classic ACC 1.0.226 with REA/Ghidra; record target hash, addresses and evidence IDs.
-- [x] Trace packet framing, EQ read encoding, sidetone and noise-gate command builders.
+- [x] Trace shared framing and candidate command builders; A50 class binding remains unverified.
 - [x] Deliver `tools/a50.py`: inventory, passive listener, offline preset decoding and selftest.
 - [x] Review malformed packet handling, sequence fields, preset validation, and disconnect handling.
 - [x] Parse all five preserved factory presets successfully in runnable checks.
@@ -50,23 +50,16 @@ The HID interface uses report ID `2` and a 63-byte data area. Static framing is
 header bytes leave **61 payload bytes**, or **60** with the extended marker.
 The decoder rejects malformed/truncated reports and invalid extended markers.
 
-Static analysis identified EQ opcodes `0x63`/`0x64`, three slots with five gains
-and frequencies and three fractional bandwidths; sidetone `0x68` (feature 37);
-and noise gate `0x66` (feature 35). Preserved app state suggests the europa
-firmware family; no live identity query has confirmed it. No firmware action
-has been performed.
+The earlier EQ opcodes `0x63`/`0x64`, sidetone `0x68` and noise gate `0x66`
+were not bound to the A50 registration. The EQ reader's resolved constructor
+is **A20**, PID `0x1c`; applicability to A50 is unverified. The preset INI
+schema remains observed shipped data, but is not proof of a live A50 protocol.
 
-**New this pass:** the full send/wait/reply-correlation mechanism is traced
-(docs/FINDINGS.md §14) and confirmed live against Ben's connected A50 —
-`tools/a50.py eq-read` sends the decompiled request and the device replies
-with correctly-sequenced, correctly-framed, legible structured responses.
-That proves the wire protocol (framing/sequence/status-byte/error-layout) is
-right. It also revealed that the specific opcode traced (`0x63` via
-`0x4800a0`) belongs to the binary's `Devices::AstroA20` class, not `AstroA50`
-— a genuinely separate class exists in the binary and likely has its own,
-not-yet-located sibling function. No setting was changed; every live request
-was the proven read-only shape and the device's own well-formed error
-response is further evidence of that.
+The live diagnostic exchange returned structured errors for page0 and two-byte
+success-marked replies for page1, not decoded EQ values. These support shared
+transport framing/status/sequence behavior. **`eq-read` is disabled and its live transmit helper removed** pending
+an A50-bound read path. There were no intentional settings writes; unchanged
+device settings were not verified by a before/after readback.
 
 The active PipeWire profile exposes one sink. `pro-audio` advertises two sinks
 and two sources, making it a promising routing fix. **It has not been applied
@@ -75,8 +68,8 @@ elapsed time does not grant approval. No config files or services were changed.
 
 A passive 12-second idle capture received no reports. This establishes only
 that no unsolicited reports were observed during that interval; initialization,
-subscription or polling may still be needed. The utility currently opens HID
-read-only and has no transmit or settings-write path. The supervisor sandbox
+subscription or polling may still be needed. The passive listener opens HID read-only. The diagnostic transmit CLI is now
+disabled; offline transport tests remain. The supervisor sandbox
 exposes sysfs but not `/dev/hidraw9`; its listener exits visibly with ENOENT.
 The earlier worker successfully captured from the host environment.
 
@@ -89,26 +82,16 @@ node, but does not establish whether queried control/status reads work.
 
 ## Continuation status
 
-Ben clarified that Claude still has session capacity, Gemini should be skipped,
-and LiteLLM should use `nvidia-free-reasoning` or `nvidia-free-fast`.
-The NVIDIA attempt `7311268f-2653-4db5-bf77-337ba8fff0fe` was cancelled before
-edits because its proposed generic query lacked the required evidence.
-**Astra-read-path**, Claude Sonnet, worker ID
-`fd0c34b4-9fd0-4e80-9540-af6ea7e0da49`: **completed and committed.** Reopened
-the correct artifact in Ghidra, traced the full send/wait/reply-validation
-chain, implemented `tools/a50.py eq-read`, and ran it live against the
-connected A50. Result is in docs/FINDINGS.md §14 and HANDOFF.md: the wire
-protocol is now confirmed live; the exact opcode traced belongs to the
-sibling `AstroA20` class, not `AstroA50`, which is the concrete, bounded,
-static next step (no further live probing needed to find it).
+Ben says Claude has session capacity; skip Gemini. Use `nvidia-free-reasoning`
+or `nvidia-free-fast` for LiteLLM, not the depleted paid Merge model.
+The first Sonnet read-path pass completed at `3ad761d`. The second Sonnet pass
+stalled after disabling `eq-read` and correcting findings; it was cancelled.
+The supervisor reviewed and preserved those changes.
 
-The first Astra worker completed and committed its investigation. Subsequent
-Claude workers stalled before edits and were cancelled. Gemini failed to create
-an ACP session (client no longer supported). LiteLLM failed with HTTP 402
-`budget_exceeded` on the paid Merge model (credit balance depleted). Those
-attempts are inactive; the NVIDIA continuation above is the current attempt.
-The supervisor completed the bounded validation review and this disk handoff.
-See [[HANDOFF]] for worker IDs, commit history and the exact next investigation.
+Read-only worker **Astra-vtables**, `litellm/nvidia-free-fast`,
+`0d283f16-df8a-439b-b22b-6ec6cddc844f`, is looking for actual A50 registration
+and vtable addresses. Retrieve its result before claiming new findings.
+See [[HANDOFF]] for previous worker IDs and exact next investigation.
 
 ## Boundaries
 

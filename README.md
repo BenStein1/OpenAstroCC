@@ -26,6 +26,10 @@ For a context reset, start with [HANDOFF.md](HANDOFF.md) and [PROJECT.md](PROJEC
 | `evidence/` | Raw hardware evidence: `lsusb -v`, HID report descriptor, ALSA stream maps, PipeWire card dump. |
 | `artifacts/` | Preserved Windows app trees and settings. **Git-ignored, never commit** — proprietary binaries and personal settings. |
 
+The diagnostic `eq-read` command is disabled. Its traced EQ reader was linked
+to an A20 constructor, so it must not be presented as a verified A50 read. See
+HANDOFF.md for the model-binding correction and actual live results.
+
 ## Quick start
 
 ```bash
