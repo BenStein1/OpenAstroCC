@@ -67,6 +67,13 @@ read-only and has no transmit or settings-write path. The supervisor sandbox
 exposes sysfs but not `/dev/hidraw9`; its listener exits visibly with ENOENT.
 The earlier worker successfully captured from the host environment.
 
+Ben also ran `python3 tools/a50.py listen` on Torvalds and stopped it with
+Ctrl-C after **zero reports**. Duration and physical control actions were not
+specified. His transcript contains the older, overly strong closing message;
+the current file at commit `3f3db98` instead explains that polling or
+initialization may be required. This capture confirms host access to the HID
+node, but does not establish whether queried control/status reads work.
+
 ## Continuation status
 
 The first Astra worker completed and committed its investigation. Subsequent

@@ -60,6 +60,13 @@ Do not commit proprietary code dumps or personal app state.
 
 ## Next engineering work
 
+Additional user evidence: Ben ran the passive listener on Torvalds, opened
+`/dev/hidraw9`, then stopped with Ctrl-C after zero reports. Capture duration
+and which controls, if any, were used are unspecified. The pasted output uses
+the pre-review closing message; current `tools/a50.py` has the qualified
+wording. Do not ask Ben to repeat this passive test as a prerequisite for
+tracing the initialization/query paths.
+
 1. Re-read the startup EQ path and shared packet builder to establish exact
    read requests, reply length/opcode/sequence matching, initialization and
    timeout behavior. The CLI currently builds offline examples only.
