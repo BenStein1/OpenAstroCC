@@ -112,7 +112,15 @@ validate a real targeted playback route before providing/running a test command.
 - `f041fe76-80e2-4527-b4bf-ab5ec4848a41`: LiteLLM failed with HTTP 402,
   credit balance depleted, model group `merge-deepseek-v4-flash-0731`.
 
-No worker is currently active. Recover results with Nori get_worker if needed;
+Ben subsequently clarified that Claude still has session capacity; skip Gemini.
+For LiteLLM use `nvidia-free-reasoning` or `nvidia-free-fast`, not the depleted
+Merge route. Astra-query is dispatched with exact catalog model
+`litellm/nvidia-free-reasoning`, ID `7311268f-2653-4db5-bf77-337ba8fff0fe`.
+It is tracing initialization/query/reply paths and may implement/execute only
+statically established harmless read requests. It must update this handoff and
+PROJECT.md and commit before completion. Its dispatch is not proof of results.
+
+Recover this worker with Nori get_worker before dispatching duplicate work;
 worker execution is not persistent after Nori process exit. Do not blindly
 redispatch to the failed routes or modify billing/client configuration as part
 of this headset task. Continue from this repository using an available worker.

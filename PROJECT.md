@@ -76,10 +76,20 @@ node, but does not establish whether queried control/status reads work.
 
 ## Continuation status
 
+Ben clarified that Claude still has session capacity, Gemini should be skipped,
+and LiteLLM should use `nvidia-free-reasoning` or `nvidia-free-fast`.
+**Astra-query** is now dispatched through Nori with model
+`litellm/nvidia-free-reasoning`, worker ID
+`7311268f-2653-4db5-bf77-337ba8fff0fe`. The task is to trace and implement an
+evidenced read-only query, including initialization/reply matching, and save
+Ghidra evidence. Dispatch is not completion; collect its result with Nori
+`get_worker` before marking any new functionality verified.
+
 The first Astra worker completed and committed its investigation. Subsequent
 Claude workers stalled before edits and were cancelled. Gemini failed to create
 an ACP session (client no longer supported). LiteLLM failed with HTTP 402
-`budget_exceeded` (credit balance depleted). No workers remain active.
+`budget_exceeded` on the paid Merge model (credit balance depleted). Those
+attempts are inactive; the NVIDIA continuation above is the current attempt.
 The supervisor completed the bounded validation review and this disk handoff.
 See [[HANDOFF]] for worker IDs, commit history and the exact next investigation.
 
