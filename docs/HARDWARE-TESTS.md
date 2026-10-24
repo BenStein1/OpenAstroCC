@@ -11,8 +11,8 @@ Test 4 is listening only.
 ## Test 1 — Do the physical controls emit HID reports? (read-only)
 
 The single most valuable unknown. The handoff is explicit that the headset may
-handle its controls entirely internally, so **a silent capture is a real answer,
-not a failed test.**
+handle its controls internally. A quiet capture records no unsolicited events
+during that interval; it cannot rule out a polling or initialization requirement.
 
 ```
 python3 tools/a50.py listen
@@ -33,9 +33,9 @@ Ctrl-C to stop. What the output means:
 - **Reports appear** → the controls are observable from Linux. Note which
   action produced which `cmd=` and payload; that maps opcodes to physical
   controls empirically, which is exactly what static analysis could not do.
-- **Nothing appears** → these controls are handled inside the headset and are
-  not readable over HID. That closes the question and rules out a class of
-  designs. Say so; don't go looking for a workaround that implies otherwise.
+- **Nothing appears** → no unsolicited reports were observed in that interval.
+  Keep polling, initialization, and internal-only control behavior as open
+  possibilities until the corresponding code paths are traced.
 
 Roughly which action produced which line matters, so narrate as you go if it
 helps (`listen` numbers every report).
@@ -65,7 +65,7 @@ reports correctly against real hardware.
 ## Test 3 — Simultaneous Game + Voice (changes a live setting)
 
 This is the acceptance criterion that currently fails on Linux, and the
-investigation found it to be a profile problem, not a protocol one
+investigation identified a likely profile-routing problem that remains unverified
 (`docs/FINDINGS.md` §10). **Your call to run.**
 
 Two things to know first:
@@ -113,7 +113,9 @@ report what you observe rather than what the manual promises.
 
 ### 3c — Make it persist (only if 3a/3b worked)
 
-`pactl set-card-profile` does not survive a reboot. For persistence:
+Profile selection may be restored by WirePlumber state, but persistence has not
+been tested here. The supplied rule is also unvalidated; install only after the
+live-profile test succeeds and separately approve any restart. Candidate setup:
 
 ```
 mkdir -p ~/.config/wireplumber/wireplumber.conf.d
@@ -123,7 +125,7 @@ pactl list cards | grep -A1 Astro_Gaming   # confirm Active Profile: pro-audio
 ```
 
 If the profile does *not* come up as `pro-audio` after the restart, the profile
-choice is still correct — only the persistence mechanism needs another approach.
+choice and persistence mechanism both need further investigation.
 WirePlumber 0.5 keeps its own persisted profile selection, so the alternative is
 `wpctl set-profile <card-id> <profile-index>` (card id from `wpctl status`), or
 clearing the stored selection in `~/.local/state/wireplumber/`.
@@ -141,13 +143,12 @@ The descriptor advertises L/R/C/LFE/LS/RS at 48 kHz on the Game function. Whethe
 the headset renders those discretely or downmixes internally cannot be read from
 a descriptor.
 
-With the `pro-audio` profile active and the Game sink selected:
+First validate a real playback route to the Game sink. The earlier suggested
+`pro-audio:CARD=A50,DEV=1` name was not established as an ALSA PCM and must not
+be used as proof of testing. Targeted six-channel test generation/playback
+instructions remain to be verified before this test can run.
 
-```
-speaker-test -D pro-audio:CARD=A50,DEV=1 -c 6 -t wav
-```
-
-`speaker-test` announces each position as it plays. Note for each of the six
+For the eventual low-volume per-channel test, Note for each of the six
 whether it is audible and whether it appears to come from the expected direction.
 Front-left/front-right are the reliable anchors; centre and LFE commonly fold in.
 
@@ -160,4 +161,5 @@ versus passthrough — it may change the answer entirely.
 For each test: what you did, what happened, and anything surprising. Raw
 `listen` output is more useful than a summary of it — the byte patterns are the
 evidence. Negative results are genuinely valuable here; several open questions in
-FINDINGS.md are of the form "does this happen at all", and "no" closes them.
+FINDINGS.md need bounded observations. Record the capture duration and actions;
+a negative passive result does not establish that polling is impossible.

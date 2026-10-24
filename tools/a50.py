@@ -17,6 +17,7 @@ Subcommands:
 
 import configparser
 import glob
+import math
 import os
 import sys
 
@@ -46,7 +47,7 @@ OPCODES = {
 
 # --- protocol framing (docs/FINDINGS.md §4) --------------------------------
 
-def frame(cmd, payload):
+def frame(cmd, payload, seq=0):
     """Build a 64-byte report per the evidenced KUIPER framing.
 
     Used by selftest and to document the format executably. Intentionally not
@@ -54,6 +55,8 @@ def frame(cmd, payload):
     """
     if not 0 <= cmd <= 0xFF:
         raise ValueError("cmd out of range: %r" % cmd)
+    if type(seq) is not int or not 0 <= seq <= 3:
+        raise ValueError("sequence must be an integer from 0 to 3")
     extended = bool(cmd & 0x80)
     limit = MAX_PAYLOAD_EXTENDED if extended else MAX_PAYLOAD
     if len(payload) > limit:
@@ -61,7 +64,7 @@ def frame(cmd, payload):
             "payload %d bytes exceeds report capacity (%d max%s)"
             % (len(payload), limit, " for an extended opcode" if extended else ""))
     length = len(payload) + (1 if extended else 0)
-    body = bytes([cmd, length]) + (b"\x0a" if extended else b"") + bytes(payload)
+    body = bytes([cmd, length | (seq << 6)]) + (b"\x0a" if extended else b"") + bytes(payload)
     report = (bytes([REPORT_ID]) + body).ljust(REPORT_LEN, b"\x00")
     assert len(report) == REPORT_LEN, len(report)  # capacity check must hold
     return report
@@ -73,14 +76,18 @@ def unframe(report):
     Returns None if the leading byte isn't the report ID this device declares,
     so an unexpected report shape is visible rather than silently misparsed.
     """
-    if len(report) < 3 or report[0] != REPORT_ID:
+    if len(report) != REPORT_LEN or report[0] != REPORT_ID:
         return None
     cmd = report[1]
     length = report[2] & 0x3F
     seq = report[2] >> 6
     start = 3 + (1 if cmd & 0x80 else 0)
+    if length > MAX_PAYLOAD:
+        return None
     if cmd & 0x80:
-        length = max(0, length - 1)
+        if length == 0 or report[3] != 0x0A:
+            return None
+        length -= 1
     return cmd, seq, bytes(report[start:start + length])
 
 
@@ -94,11 +101,16 @@ BANDWIDTH_FIXED_ONE = 4096
 
 
 def bandwidth_to_raw(octaves):
-    return int(round(octaves * BANDWIDTH_FIXED_ONE))
+    if not math.isfinite(octaves) or not 0 < octaves <= 0xFFFF / BANDWIDTH_FIXED_ONE:
+        raise ValueError("bandwidth must be finite, positive and representable as uint16 4.12")
+    raw = math.floor(octaves * BANDWIDTH_FIXED_ONE + 0.5)
+    if raw == 0:
+        raise ValueError("bandwidth rounds to zero")
+    return raw
 
 
 def bandwidth_from_raw(raw):
-    return round(raw / BANDWIDTH_FIXED_ONE * 10) / 10
+    return math.floor(raw / BANDWIDTH_FIXED_ONE * 10 + 0.5) / 10
 
 
 def load_astroeq(path):
@@ -125,6 +137,14 @@ def encode_eq(preset):
     proven to use; the write payload layout is NOT established, so this returns
     fields rather than a ready-to-send packet.
     """
+    if len(preset["gains"]) != BANDS or len(preset["freqs"]) != BANDS:
+        raise ValueError("a preset requires five gains and five frequencies")
+    if set(preset["bandwidths"]) != set(BANDWIDTH_BANDS):
+        raise ValueError("bandwidths are required for bands 2, 3 and 4")
+    if any(type(g) is not int or not -128 <= g <= 127 for g in preset["gains"]):
+        raise ValueError("gains must fit signed 8-bit integers")
+    if any(type(f) is not int or not 0 <= f <= 0xFFFF for f in preset["freqs"]):
+        raise ValueError("frequencies must fit unsigned 16-bit integers")
     return {
         "gains": bytes((g & 0xFF) for g in preset["gains"]),
         "freqs": b"".join(f.to_bytes(2, "little") for f in preset["freqs"]),
@@ -224,15 +244,16 @@ def cmd_listen(args):
     print("press/flip the headset controls now; see docs/HARDWARE-TESTS.md\n")
     try:
         fd = os.open(path, os.O_RDONLY)
-    except PermissionError:
-        print("permission denied on %s" % path, file=sys.stderr)
+    except OSError as exc:
+        print("cannot open %s: %s" % (path, exc), file=sys.stderr)
         return 1
     count = 0
     try:
         while True:
             data = os.read(fd, 64)
             if not data:
-                continue
+                print("HID input closed; stopping.", file=sys.stderr)
+                return 1
             count += 1
             decoded = unframe(data)
             stamp = "[%04d]" % count
@@ -247,8 +268,11 @@ def cmd_listen(args):
     except KeyboardInterrupt:
         print("\nstopped after %d report(s)." % count)
         if count == 0:
-            print("No reports received. If controls were used, that is itself a")
-            print("result: this device does not push HID events for them.")
+            print("No unsolicited reports observed during this capture.")
+            print("Polling or initialization may still be required to read controls.")
+    except OSError as exc:
+        print("HID read failed: %s" % exc, file=sys.stderr)
+        return 1
     finally:
         os.close(fd)
     return 0
@@ -300,6 +324,12 @@ def cmd_selftest(_args):
     assert unframe(frame(0xDA, b"\x07")) == (0xDA, 0, b"\x07")
     # A report that isn't ours must be rejected, not misparsed.
     assert unframe(b"\x01" + b"\x00" * 63) is None
+    for seq in range(4):
+        assert unframe(frame(0x63, b"\x00\x01", seq)) == (0x63, seq, b"\x00\x01")
+        assert unframe(frame(0xDA, b"\x07", seq)) == (0xDA, seq, b"\x07")
+    for bad in (pkt[:-1], pkt + b"\x00", b"\x02\x63\x3f" + bytes(61),
+                b"\x02\xda\x00" + bytes(61), b"\x02\xda\x01" + bytes(61)):
+        assert unframe(bad) is None
 
     # Payload capacity is bounded by the report, not by the 6-bit length field.
     # 61 bytes is the largest that fits; 62 must be refused even though the
@@ -324,14 +354,43 @@ def cmd_selftest(_args):
         assert bandwidth_from_raw(bandwidth_to_raw(octaves)) == octaves, octaves
     assert bandwidth_to_raw(2.0) == 8192
     assert bandwidth_to_raw(0.5) == 2048
+    assert bandwidth_from_raw(1024) == 0.3, "match the app's roundf at half tenths"
 
     # Frequencies are little-endian uint16.
     assert (7001).to_bytes(2, "little") == b"\x59\x1b"
 
     # Negative gains must survive as signed bytes.
     enc = encode_eq({"gains": [-5, 0, 6, 7, -4], "freqs": [90] * 5,
-                     "bandwidths": {2: 2}})
+                     "bandwidths": {2: 2, 3: 1.6, 4: 0.5}})
     assert enc["gains"] == bytes([0xFB, 0x00, 0x06, 0x07, 0xFC]), enc["gains"].hex()
+    valid = {"gains": [0] * 5, "freqs": [90] * 5,
+             "bandwidths": {2: 2, 3: 1.6, 4: 0.5}}
+    for change in ({"gains": [128] * 5}, {"gains": [-129] * 5},
+                   {"gains": [0] * 4}, {"freqs": [-1] * 5},
+                   {"freqs": [65536] * 5}, {"freqs": [1.5] * 5},
+                   {"bandwidths": {2: 1}},
+                   *({"bandwidths": {2: v, 3: 1, 4: 1}}
+                     for v in (float("nan"), float("inf"), -1, 0, 0.000001, 16))):
+        try:
+            encode_eq({**valid, **change})
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("invalid preset accepted: %r" % change)
+
+    # A vanished device must return failure and close its fd, never busy-loop.
+    import contextlib
+    import io
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    for read_result in ({"return_value": b""}, {"side_effect": OSError("disconnected")}):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()), \
+                patch.object(os, "open", return_value=99), \
+                patch.object(os, "read", **read_result) as read_mock, \
+                patch.object(os, "close") as close_mock:
+            assert cmd_listen(SimpleNamespace(device="/mock-hid")) == 1
+            read_mock.assert_called_once_with(99, 64)
+            close_mock.assert_called_once_with(99)
 
     # Parse the real shipped presets if preserved, and check the schema the
     # decompiled reader implies: 5 gains, 5 freqs, 3 bandwidths for bands 2-4.

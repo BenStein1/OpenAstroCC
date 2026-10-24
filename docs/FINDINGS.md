@@ -24,7 +24,7 @@ audio configuration was left untouched.
 | iSerial           | absent (`0`)                 | [HW] |
 | bcdDevice         | `0.00`                       | [HW] |
 | ALSA card         | `card 1: A50`, `USB9886:0015`| [HW] `evidence/pactl-cards.txt` |
-| Variant codename  | **europa** (NOT Mimas)       | [STATIC] see §6 |
+| Variant codename  | **europa candidate** (live identity unverified)       | [STATIC] see §6 |
 
 `bcdDevice` is `0.00` and there is no serial string, so **firmware version is not
 available from USB descriptors** — the Windows app must read it over HID. That
@@ -33,7 +33,8 @@ later; it was not performed here.
 
 The same VID:PID appears in Ben's own Windows app logs:
 `D:12:17:50 : 2907975830 : WinHardwareBus : OnDeviceArrival: [x9886:x15]`
-— so the preserved logs describe this exact headset. [STATIC]
+— consistent with the same device model; VID:PID alone is not a unique unit
+identifier. [STATIC]
 
 ## 2. USB topology — 7 interfaces, two independent audio functions
 
@@ -77,10 +78,9 @@ Three consequences worth stating plainly:
 `amixer -c 1 controls` returns only channel-map elements — **no volume, no mute, no
 feature units at all**. [HW] `evidence/amixer-controls.txt`
 
-This is an important structural finding: sidetone, EQ, Game/Voice balance and every
-other setting are **not reachable through ALSA/UAC**. The HID interface is the only
-control path. It also means there is nothing for PipeWire to expose as a volume
-slider for this card.
+The inspected ALSA mixer exposes none of these settings. The classic app uses
+vendor HID for the traced controls; absence of ALSA controls alone does not rule
+out other vendor mechanisms. PipeWire can still apply software stream volume.
 
 ## 3. HID control channel
 
@@ -246,17 +246,18 @@ Eq_Bandwidth_4=2                      ; only 3 bandwidths — bands 2,3,4
 Five gains, five frequencies, **three** bandwidths for the middle bands only — the
 file schema and the decompiled loop counts agree exactly, from two independent
 sources. This is the strongest single result in this pass, and it is why
-`tools/astroeq.py` can be shipped as a verified decoder.
+`tools/a50.py eq` can be shipped as a verified decoder.
 
 The three slots correspond to the three physical EQ-button positions documented in
 the Gen 3 manual (base indicators 1/2/3, stock labels ASTRO/PRO/STUDIO). Stock
 presets `ASTRO`, `PRO`, `STUDIO`, plus `MEDIA` and `A50 MOD KIT`, are preserved in
 `artifacts/`.
 
-## 6. Variant question settled: europa, not Mimas
+## 6. Variant evidence: europa candidate
 
 The handoff flagged that bundled "Mimas" assets do not prove Ben's headset is that
-variant. Resolved from his own preserved app state. [STATIC]
+variant. Preserved app state suggests europa, but no live identity query has
+validated this association. [INFER]
 
 - The app created and populated `appdata-classic/Astro A50 Wireless/FW/` containing
   `merged_europa_000000000000_tm-36791_rm-36154_tr-0,0,42_rr-0,0,42.afw`.
@@ -265,8 +266,8 @@ variant. Resolved from his own preserved app state. [STATIC]
 - The `Astro A50 Wireless (Mimas)/` directory holds only the vendor-shipped preset
   copies, no `FW/` directory.
 
-So the connected headset is handled by the app as plain **`Astro A50 Wireless`**,
-firmware family **`europa`**, with `tm-36791` / `rm-36154` reading as transmitter
+The preserved app state associates **`Astro A50 Wireless`** with firmware family
+**`europa`**; this is a candidate association, not proof of current live firmware, with `tm-36791` / `rm-36154` reading as transmitter
 and receiver firmware revisions **[INFER, moderate]**. The internal product
 codename for the software line is **`kuiper`** — from the update URL
 `http://update.astrogaming.com/kuiper/win`, the command prefix `KUIPER_*`, and the
@@ -363,7 +364,7 @@ covers mic EQ and noise gate, "stream mix" is the mix state. Their opcodes are
 
 | Feature | Status |
 |---|---|
-| Separate Game + Voice playback | **Solved, no protocol needed.** Both are independent USB audio functions, named by descriptor. Blocked only by a PipeWire profile choice — §10. |
+| Separate Game + Voice playback | **Interfaces identified; playback unverified.** Independent USB audio functions exist. The profile is a likely routing blocker; test §10. |
 | Real channel count | **Measured.** Voice 2ch/48k, Game 6ch/48k, mic 1ch/16k, aux 2ch/48k. Positional rendering unverified. |
 | Three EQ slots | **Protocol understood** (opcodes `0x63`/`0x64`, 3 slots × 5 bands, cross-validated). Not exercised on hardware. |
 | Sidetone | **Opcode identified** (`0x68`, feature 37, single byte). Valid range unknown. Not exercised. |
@@ -372,11 +373,11 @@ covers mic EQ and noise gate, "stream mix" is the mix state. Their opcodes are
 | Default Game:Voice balance | Setting exists per 2016 materials; opcode **[UNKNOWN]**. |
 | USB Stream Port mix | Sub-device `A50StreamPort` exists; opcode **[UNKNOWN]**. |
 | Base brightness, alert volume | In the `0x60`–`0x7C` space; opcode **[UNKNOWN]**. |
-| Physical Game/Voice balance control | **[UNKNOWN] whether it emits HID at all.** The handoff warns not to assume it does. `tools/a50-listen` answers this empirically — §11. |
+| Physical Game/Voice balance control | **[UNKNOWN] whether it emits HID at all.** A passive capture tests unsolicited events; initialization or polling may still be needed — §11. |
 | Dolby / EQ buttons, flip-to-mute, battery | Same — unresolved until the passive listener runs during interaction. |
 | Firmware version | Not in USB descriptors; must come over HID. Read path not located. No firmware action taken. |
 
-## 10. Game/Voice routing — the actual Linux blocker
+## 10. Game/Voice routing — a likely Linux blocker
 
 This is the finding with the most practical value, and it needs no protocol work.
 
@@ -397,11 +398,10 @@ pro-audio                                    sinks: 2, sources: 2   ← both fun
 ```
 
 **Every profile except `pro-audio` exposes exactly one sink.** The Game and Voice
-functions cannot both be active, so there is nothing for the headset's hardware
-Game/Voice balance control to act on — which is precisely the symptom the handoff
-describes. The `analog`/`iec958`/`ac3` profile names are generic ACP fallbacks
-invented because the card publishes no mixer (§2); they do not describe real
-hardware paths on this device.
+functions are not independently exposed as two sinks by the active profile.
+That is a plausible explanation for the reported balance symptom, pending actual
+playback. The generic ACP profile names alone do not establish hardware routing
+or why ACP selected those mappings.
 
 **`pro-audio` is the only profile that exposes both functions** (2 sinks, 2 sources),
 and it passes channels through untouched — the headset keeps doing its own mixing,
@@ -419,13 +419,13 @@ Verification requires Ben (§11): switching the profile is a live audio change.
 ## 11. What needs Ben, and why it can't be inferred
 
 These cannot be answered from shipped artifacts. Each needs a physical interaction
-while `tools/a50-listen` records. Procedure: `docs/HARDWARE-TESTS.md`.
+while `python3 tools/a50.py listen` records. Procedure: `docs/HARDWARE-TESTS.md`.
 
 1. **Does any physical control emit an HID report?** Press the Game side, then the
    Voice side, of the right earcup; the Dolby/Source button; the EQ button; flip the
    mic boom up and down; turn the volume wheel. The handoff is explicit that button
-   state may be handled entirely inside the headset — the listener settles it either
-   way, and a silent capture is a real answer, not a failure.
+   state may be handled internally. A silent capture means no unsolicited reports
+   were observed during that test; it does not exclude initialization or polling.
 2. **Does the device push unsolicited status?** Leave the listener running idle, on
    and off the charging base. Expect battery/charge/dock state if anything.
 3. **Does `pro-audio` deliver simultaneous Game + Voice?** Switch profile, play game

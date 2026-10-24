@@ -2,127 +2,84 @@
 name: Astro A50 Linux
 status: active
 summary: Native Linux support for the Astro A50 Gen 3 headset, including Command Center settings and separate Game and Voice audio paths.
-next: Run the read-only hardware tests in docs/HARDWARE-TESTS.md, then map the remaining 0x60-0x7C opcodes and the per-feature range table before any device write.
+next: Trace verified settings/status reads and feature bounds in Ghidra, then test the native client and separate Game/Voice playback on hardware.
 updated: 2026-10-24
 ---
 
 # Astro A50 Linux
 
-Build a native Linux replacement for the classic ASTRO Command Center for Ben's
-**A50 Gen 3**. Restore the documented headset features on KDE/PipeWire using a
-userspace HID tool and the correct audio profiles, with a KDE front end later
-if useful.
+Build native Linux support for Ben's **Astro A50 Gen 3** on KDE/PipeWire,
+using a userspace HID utility and correct audio routing. Add a KDE front end
+once the underlying controls work.
 
-## Starting brief
+## Resume here
 
-[Original investigation and acceptance criteria](https://github.com/BenStein1/obsidian-projects/blob/main/Projects/BlueSky/Astro-A50-Gen3-Linux-plan.md).
+Read [[HANDOFF]] first, then [[docs/FINDINGS]] for the detailed protocol ledger
+and [[docs/HARDWARE-TESTS]] for physical tests. All progress is local to
+`/home/ben/Projects/astro-a50-linux`; nothing has been pushed.
 
-Project folder: `/home/ben/Projects/astro-a50-linux`.
-Worker: **Astra**, Claude Code; Nori worker ID
-`f84cf343-c7d2-4b47-9765-24840eb5e824`.
-
-### Active continuation
-
-Ben requested continued implementation and durable Markdown tracking after the
-first pass. **Astra-protocol** (Claude Code), Nori worker ID
-`93d7e2f1-9480-4dc3-b0c6-43c9e830a4bb`, is reviewing packet boundaries and preset
-validation, qualifying unsupported conclusions, and extending the Ghidra command
-map. Recover this worker with Nori `get_worker` while the same Nori process is
-alive; after a restart, resume from the files and commits instead.
-
-Review identified that the 63-byte HID data area includes two command-header
-bytes: a normal report can carry at most **61 payload bytes**, or **60** with
-the extended marker. A quiet passive capture establishes only that no unsolicited
-reports were observed during that test; it cannot rule out polling or an
-initialization requirement. The continuation is correcting these limits in code
-and documentation. Treat earlier stronger claims below as pending review.
-
-An approval question is pending for switching only the live A50 PipeWire profile
-to `pro-audio`, without config-file edits or a service restart. **No approval or
-profile change has occurred.** Continue static analysis and verified read-only
-queries independently; do not infer approval from elapsed time.
+[Original brief and acceptance criteria](https://github.com/BenStein1/obsidian-projects/blob/main/Projects/BlueSky/Astro-A50-Gen3-Linux-plan.md).
 
 ## Progress
 
-- [x] Create the project folder and initialize Git.
-- [x] Preserve both Windows app trees and their settings in the private local artifact area.
-- [x] Identify the connected headset as USB `9886:0015` and save audio/HID descriptor evidence.
-- [x] Start REA/Ghidra analysis of the classic Command Center executable.
-- [x] Establish the HID wire format (report ID, opcode, length/sequence, padding) with evidence.
-- [x] Decode the EQ protocol and cross-validate it against the shipped `.astroeq` schema.
-- [x] Settle the variant question: `europa`, not Mimas.
-- [x] Ship a read-only tool (`tools/a50.py`) with a runnable offline selftest.
-- [x] Write the hardware test plan for the controls that need Ben (`docs/HARDWARE-TESTS.md`).
-- [ ] Finish the protocol table — framing, fields and evidence are done; ~25 of the ~29
-      opcodes in `0x60`-`0x7C`, the per-feature valid ranges, and the reply shapes remain.
-- [ ] Implement and test the native settings/preset tool incrementally.
-      Deliberately blocked: no writes until opcode *and* range are both evidenced.
-- [ ] Expose and verify independent Game and Voice playback paths.
-      Config written (`config/51-astro-a50-pro-audio.conf`); not applied, needs test 3.
-- [ ] Validate the physical Game/Voice balance control with both streams playing.
-- [ ] Validate onboard sidetone, three EQ slots, microphone settings, and remaining documented controls.
-- [ ] Verify reconnect behavior and document installation and recovery.
+- [x] Initialize project Git repository and preserve both Windows apps/settings privately.
+- [x] Verify the four preserved trees byte-for-byte and record artifact hashes.
+- [x] Identify USB `9886:0015`, vendor HID reports, and independent audio interfaces.
+- [x] Analyze classic ACC 1.0.226 with REA/Ghidra; record target hash, addresses and evidence IDs.
+- [x] Trace packet framing, EQ read encoding, sidetone and noise-gate command builders.
+- [x] Deliver `tools/a50.py`: inventory, passive listener, offline preset decoding and selftest.
+- [x] Review malformed packet handling, sequence fields, preset validation, and disconnect handling.
+- [x] Parse all five preserved factory presets successfully in runnable checks.
+- [ ] Map remaining opcodes, request/reply semantics, settings bounds and initialization.
+- [ ] Implement and exercise verified identity/status/settings queries on the headset.
+- [ ] Implement verified settings writes and export/import of device settings.
+- [ ] Test independent Game/Voice playback and the physical balance control.
+- [ ] Validate onboard sidetone, EQ changes, microphone controls and remaining documented settings.
+- [ ] Validate reconnect/reboot behavior and any persistent audio configuration.
 
 ## Current findings
 
-Full detail in [docs/FINDINGS.md](docs/FINDINGS.md), tagged `[HW]` / `[STATIC]` /
-`[INFER]` / `[UNKNOWN]` with Ghidra evidence IDs. Summary:
+The hardware exposes **Voice** (`hw:1,0`, stereo 48 kHz playback and mono 16 kHz
+mic capture) and **Game** (`hw:1,1`, six-channel 48 kHz playback and stereo line
+capture). These are descriptor observations; positional rendering remains untested.
+Card and hidraw indices may change after reconnect, so use device discovery.
 
-The connected device exposes a vendor HID interface (usage page `0xFF32`) with
-report ID `2` and a 63-byte data area in each direction. The wire format is
-`[0]=0x02`, `[1]=opcode`, `[2]=(len & 0x3F) | (seq<<6)`, `[3+]=payload`,
-zero-padded to 64 bytes; high-bit opcodes insert `0x0a` and bump the length.
-Established directly from the serializer, and corroborated on the read side by
-the EQ reader under read/write symmetry — see FINDINGS.md §4 for the precise
-limits of that second path.
+The HID interface uses report ID `2` and a 63-byte data area. Static framing is
+`report ID, opcode, length/2-bit sequence, payload`, padded to 64 bytes. The two
+header bytes leave **61 payload bytes**, or **60** with the extended marker.
+The decoder rejects malformed/truncated reports and invalid extended markers.
 
-Because two of the 63 data bytes are the command header, the real payload
-capacity is **61 bytes** (**60** with the extended marker), not 63. `frame()`
-enforces this and `selftest` asserts the boundary.
+Static analysis identified EQ opcodes `0x63`/`0x64`, three slots with five gains
+and frequencies and three fractional bandwidths; sidetone `0x68` (feature 37);
+and noise gate `0x66` (feature 35). Operating ranges and live replies remain
+unverified. Preserved app state suggests the europa firmware family; no live
+identity query has confirmed it. No firmware action has been performed.
 
-The card exposes **zero USB-Audio mixer controls**, so HID is the only control
-path — that is structural, not a configuration gap. The two audio functions are
-named by the device's own interface string descriptors: `Astro A50 Voice`
-(`hw:1,0`, 2ch out + 1ch 16 kHz mic) and `Astro A50 Game` (`hw:1,1`, 6ch 48 kHz
-out + 2ch aux in, where the capture side is the line connector and not a mic).
+The active PipeWire profile exposes one sink. `pro-audio` advertises two sinks
+and two sources, making it a promising routing fix. **It has not been applied
+or verified with playback.** A profile-change approval question is pending;
+elapsed time does not grant approval. No config files or services were changed.
 
-EQ is decoded and cross-validated: opcodes `0x63` (gains) / `0x64` (frequencies),
-3 slots × 5 bands, signed dB gains, little-endian uint16 Hz frequencies, and 3
-bandwidths as 4.12 fixed-point octaves. The decompiled loop counts and the
-shipped `.astroeq` INI schema agree exactly. Sidetone (`0x68`, feature 37) and
-noise gate (`0x66`, feature 35) are identified as single-byte, device-range-checked
-settings. None of this has been sent to the headset.
+A passive 12-second idle capture received no reports. This establishes only
+that no unsolicited reports were observed during that interval; initialization,
+subscription or polling may still be needed. The utility currently opens HID
+read-only and has no transmit or settings-write path. The supervisor sandbox
+exposes sysfs but not `/dev/hidraw9`; its listener exits visibly with ENOENT.
+The earlier worker successfully captured from the host environment.
 
-The active PipeWire profile exposes one output; `pro-audio` is the only profile
-exposing two outputs and two inputs, so the single-sink fallback — not the
-protocol — is what prevents simultaneous Game and Voice and leaves the hardware
-balance control with nothing to act on. Routing and physical balance still need
-real playback verification; no profile change has been applied.
+## Continuation status
 
-## Scope and verification
+The first Astra worker completed and committed its investigation. Subsequent
+Claude workers stalled before edits and were cancelled. Gemini failed to create
+an ACP session (client no longer supported). LiteLLM failed with HTTP 402
+`budget_exceeded` (credit balance depleted). No workers remain active.
+The supervisor completed the bounded validation review and this disk handoff.
+See [[HANDOFF]] for worker IDs, commit history and the exact next investigation.
 
-Keep the headset's actual Game/Voice mixing and onboard sidetone. Measure the
-Game channel layout instead of assuming surround support. Separate static
-protocol findings from hardware-tested behavior throughout the documentation.
+## Boundaries
 
-No firmware flashing, reset commands, speculative USB writes, or modification
-of the Windows source files. Keep proprietary artifacts and personal settings
-out of Git and remote publication.
-
-## Next session
-
-Continue from the saved REA evidence and the worker's findings. Record protocol
-details and runnable checks in this repository, then update this note as each
-hardware acceptance criterion is verified.
-
-The first investigation pass is **complete** and committed. **Full Linux feature
-support is not delivered** — see the honest per-feature status table in
-FINDINGS.md §9 for exactly what is and isn't established.
-
-Start next session with [docs/HARDWARE-TESTS.md](docs/HARDWARE-TESTS.md) tests 1
-and 2. They are read-only and zero-risk, and they answer the biggest open
-question: whether any physical control (earcup balance, Dolby, EQ button, mic
-boom, volume wheel) emits an HID report at all. A silent capture is a real
-answer, not a failed test, and it rules out a whole class of designs. Test 3
-then confirms whether `pro-audio` restores simultaneous Game and Voice, which is
-acceptance criterion #1.
+Keep proprietary artifacts and personal settings in ignored `artifacts/`.
+Preserve Windows sources. No firmware flashing, resets, brute-force commands,
+or guessed writes. Preserve actual hardware mixing and onboard sidetone.
+Keep static findings, inferences and hardware-tested behavior distinct.
+Full headset feature support is **not yet delivered**.

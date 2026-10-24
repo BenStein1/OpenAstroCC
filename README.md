@@ -9,11 +9,13 @@ Mission and acceptance criteria come from the project handoff
 
 **Status:** first investigation pass complete. Protocol framing and the EQ format
 are established from the shipped Windows binary and cross-validated against
-shipped data. The Game/Voice routing problem turned out to be a PipeWire profile
-issue, not a protocol one, and has a config-only fix. Nothing has been written to
+shipped data. The profile inventory identifies a likely Game/Voice routing issue; the supplied
+configuration remains untested in playback. Nothing has been written to
 the headset and no live configuration was changed.
 
 ## What's here
+
+For a context reset, start with [HANDOFF.md](HANDOFF.md) and [PROJECT.md](PROJECT.md).
 
 | Path | What |
 |---|---|
@@ -33,8 +35,9 @@ python3 tools/a50.py listen       # passively watch HID reports (read-only)
 python3 tools/a50.py eq "artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ/ASTRO.astroeq"
 ```
 
-Stdlib Python 3 only — no dependencies, no root, no udev rule. `/dev/hidraw9` is
-already world-readable on this host.
+Stdlib Python 3 only. The first worker observed `/dev/hidraw9` readable on the
+host; rediscover the node and check access in the environment running the tool.
+The supervisor sandbox exposes the sysfs entry but not that `/dev` node.
 
 ## The headline findings
 
@@ -43,9 +46,9 @@ already world-readable on this host.
   mic) and `Astro A50 Game` (`hw:1,1`, **6ch** 48 kHz out + 2ch aux in). No
   guesswork — the device labels them.
 - **The card exposes zero UAC mixer controls.** Sidetone, EQ, balance and the rest
-  are reachable *only* over the vendor HID interface. That's structural, and it's
-  why the Windows app is built the way it is.
-- **Game/Voice doesn't work on Linux because of a profile, not a protocol.** Every
+  are absent from that mixer. The classic app uses HID for the traced settings;
+  this does not prove HID is the only possible vendor mechanism.
+- **A profile is a likely Game/Voice routing blocker, pending playback tests.** Every
   PipeWire profile except `pro-audio` exposes a single sink, so both functions can
   never be live at once and the headset's hardware balance control has nothing to
   act on. `pro-audio` exposes 2 sinks + 2 sources and passes audio through
@@ -59,9 +62,9 @@ already world-readable on this host.
   loop counts and the shipped `.astroeq` INI schema agree exactly — five gains,
   five frequencies, three bandwidths.
 - **Sidetone = opcode `0x68`** (feature 37), **noise gate = opcode `0x66`**
-  (feature 35), both single-byte, both range-checked by the device.
-- **The headset is the `europa` variant, not Mimas** — settled from Ben's own
-  preserved app state, not assumed from the bundled asset folders.
+  (feature 35), both single-byte, range-checked by the Windows app; device enforcement is unverified.
+- **Preserved app state suggests the `europa` family.** Live firmware identity
+  has not been queried, so the association remains inferred.
 
 ## What is deliberately NOT here
 
@@ -81,7 +84,7 @@ already world-readable on this host.
 
 1. **Run `docs/HARDWARE-TESTS.md` tests 1 and 2** (zero-risk, read-only). Whether
    any physical control emits an HID report is the biggest single unknown, and it
-   gates the design of everything else. A silent result is a real answer.
+   tests unsolicited events. Silence cannot exclude initialization or polling.
 2. **Run test 3** to confirm `pro-audio` restores simultaneous Game + Voice and
    the earcup balance control. This is acceptance criterion #1.
 3. **Map the remaining opcodes** in `0x60`–`0x7C` by decompiling the other builder
