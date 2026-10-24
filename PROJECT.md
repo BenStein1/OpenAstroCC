@@ -26,6 +26,10 @@ once the underlying controls work.
 
 ## Resume here
 
+**Latest context-clear checkpoint: [[RESUME]]. Slot1 working-EQ recovery is
+the immediate priority; it was not yet verified when the checkpoint was written.**
+Recover the existing Codex/NVIDIA worker IDs there before dispatching duplicates.
+
 Read [[HANDOFF]] first, then [[docs/FINDINGS]] for the detailed protocol ledger
 and [[docs/HARDWARE-TESTS]] for physical tests. All progress is local to
 `/home/ben/Projects/astro-a50-linux`; nothing has been pushed.

@@ -6,10 +6,10 @@ verification separate in docs/FEATURES.md. This is not complete yet.
 
 ## Active workers
 
-- **Astra-complete**: Codex `gpt-6.1-sol`, Nori ID
-  `80fca206-08f3-4495-aa82-7c38ca632cd2`. Primary implementation, EQ/status/
-  mediator mapping, UI and integration. Must commit milestones locally and
-  keep PROJECT.md/HANDOFF.md accurate. No push.
+- **Astra-recover-complete**: Codex `gpt-6.1-sol`, Nori ID
+  `bcf7b754-4adb-4666-a2d5-9ac38fa18f3b`. Slot1 working-EQ recovery FIRST,
+  then primary implementation, EQ/status/mediator, UI and integration. Read
+  ../RESUME.md and EQ-RECOVERY.md. Must commit milestones locally; no push.
 - **Astra-mic-map**: `litellm/nvidia-free-fast`, Nori ID
   `4e1d4ca4-17ef-4201-8000-e7944c30a808`. Read-only static mapping of A50
   Europa microphone and stream-mix GET/SET/bounds. No code or hardware writes.
@@ -17,6 +17,10 @@ verification separate in docs/FEATURES.md. This is not complete yet.
 
 Recover these IDs with Nori get_worker before dispatching duplicates. Running
 metadata is not implementation proof. Workers do not survive Nori process exit.
+
+Prior primary `80fca206-08f3-4495-aa82-7c38ca632cd2` was cancelled to deliver
+the critical recovery finding; its unfinished client/snapshot/test files are
+preserved and belong to the replacement worker. Do not revert or clean them.
 
 ## Current authorization
 

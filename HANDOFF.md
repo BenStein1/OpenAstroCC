@@ -12,6 +12,12 @@ Older unresolved-bank and no-write descriptions below are superseded.
 
 # Astro A50 Linux — continuation handoff
 
+**Latest checkpoint is [RESUME.md](RESUME.md). Read it first.** The full A50
+setter trace strongly indicates the earlier short `0x63` probes modified slot1
+working gains. Stored gains remain available. Recovery is assigned to the active
+Codex worker and was not yet verified when this checkpoint was written. Older
+“current result” sections below precede this discovery.
+
 Updated 2026-10-24. Start with PROJECT.md and docs/A50-PROTOCOL.md (the
 current, A50-bound protocol note); docs/FINDINGS.md §14 is the superseded
 A20 history, kept for the record, not as current guidance.
