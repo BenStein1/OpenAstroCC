@@ -21,6 +21,27 @@ Project folder: `/home/ben/Projects/astro-a50-linux`.
 Worker: **Astra**, Claude Code; Nori worker ID
 `f84cf343-c7d2-4b47-9765-24840eb5e824`.
 
+### Active continuation
+
+Ben requested continued implementation and durable Markdown tracking after the
+first pass. **Astra-protocol** (Claude Code), Nori worker ID
+`93d7e2f1-9480-4dc3-b0c6-43c9e830a4bb`, is reviewing packet boundaries and preset
+validation, qualifying unsupported conclusions, and extending the Ghidra command
+map. Recover this worker with Nori `get_worker` while the same Nori process is
+alive; after a restart, resume from the files and commits instead.
+
+Review identified that the 63-byte HID data area includes two command-header
+bytes: a normal report can carry at most **61 payload bytes**, or **60** with
+the extended marker. A quiet passive capture establishes only that no unsolicited
+reports were observed during that test; it cannot rule out polling or an
+initialization requirement. The continuation is correcting these limits in code
+and documentation. Treat earlier stronger claims below as pending review.
+
+An approval question is pending for switching only the live A50 PipeWire profile
+to `pro-audio`, without config-file edits or a service restart. **No approval or
+profile change has occurred.** Continue static analysis and verified read-only
+queries independently; do not infer approval from elapsed time.
+
 ## Progress
 
 - [x] Create the project folder and initialize Git.
