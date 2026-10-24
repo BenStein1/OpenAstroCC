@@ -24,6 +24,15 @@ VID, PID = 0x9886, 0x0015
 HID_ID = "0003:%08X:%08X" % (VID, PID)
 REPORT_ID = 0x02
 
+# The HID report descriptor declares 63 data bytes, so a report is 64 on the
+# wire including the report ID. Two of those data bytes are the command header
+# (opcode, len|seq), which leaves 61 for payload -- 60 when a high-bit opcode
+# inserts the 0x0a extended marker. The 6-bit length field would allow 63, but
+# report capacity is the tighter constraint and the one that actually binds.
+REPORT_LEN = 64
+MAX_PAYLOAD = 61
+MAX_PAYLOAD_EXTENDED = 60
+
 # Opcodes with direct evidence. Everything else in 0x60..0x7c is real but
 # unidentified -- see docs/FINDINGS.md §7. Absent here means "unknown", never
 # "doesn't exist".
@@ -46,11 +55,16 @@ def frame(cmd, payload):
     if not 0 <= cmd <= 0xFF:
         raise ValueError("cmd out of range: %r" % cmd)
     extended = bool(cmd & 0x80)
+    limit = MAX_PAYLOAD_EXTENDED if extended else MAX_PAYLOAD
+    if len(payload) > limit:
+        raise ValueError(
+            "payload %d bytes exceeds report capacity (%d max%s)"
+            % (len(payload), limit, " for an extended opcode" if extended else ""))
     length = len(payload) + (1 if extended else 0)
-    if length > 0x3F:
-        raise ValueError("payload too long for the 6-bit length field: %d" % length)
     body = bytes([cmd, length]) + (b"\x0a" if extended else b"") + bytes(payload)
-    return (bytes([REPORT_ID]) + body).ljust(64, b"\x00")
+    report = (bytes([REPORT_ID]) + body).ljust(REPORT_LEN, b"\x00")
+    assert len(report) == REPORT_LEN, len(report)  # capacity check must hold
+    return report
 
 
 def unframe(report):
@@ -287,13 +301,21 @@ def cmd_selftest(_args):
     # A report that isn't ours must be rejected, not misparsed.
     assert unframe(b"\x01" + b"\x00" * 63) is None
 
-    # Length field cannot exceed 6 bits.
-    try:
-        frame(0x63, b"\x00" * 64)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("oversized payload must be rejected")
+    # Payload capacity is bounded by the report, not by the 6-bit length field.
+    # 61 bytes is the largest that fits; 62 must be refused even though the
+    # length field could encode it.
+    assert len(frame(0x63, b"\x00" * MAX_PAYLOAD)) == REPORT_LEN
+    assert frame(0x63, b"\x00" * MAX_PAYLOAD)[2] & 0x3F == MAX_PAYLOAD
+    for cmd, too_big in ((0x63, MAX_PAYLOAD + 1), (0xDA, MAX_PAYLOAD_EXTENDED + 1)):
+        try:
+            frame(cmd, b"\x00" * too_big)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(
+                "payload of %d must be rejected for cmd 0x%02x" % (too_big, cmd))
+    # An extended opcode loses one more byte to the 0x0a marker.
+    assert len(frame(0xDA, b"\x00" * MAX_PAYLOAD_EXTENDED)) == REPORT_LEN
 
     # Bandwidth round-trip across the range the shipped presets actually use
     # (0.5-2.0 octaves, one decimal place).

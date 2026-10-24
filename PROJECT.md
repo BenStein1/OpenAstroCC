@@ -69,10 +69,16 @@ Full detail in [docs/FINDINGS.md](docs/FINDINGS.md), tagged `[HW]` / `[STATIC]` 
 `[INFER]` / `[UNKNOWN]` with Ghidra evidence IDs. Summary:
 
 The connected device exposes a vendor HID interface (usage page `0xFF32`) with
-report ID `2` and 63-byte input/output payloads. The wire format is now
-**confirmed by two independent code paths**: `[0]=0x02`, `[1]=opcode`,
-`[2]=(len & 0x3F) | (seq<<6)`, `[3+]=payload`, zero-padded to 64 bytes;
-high-bit opcodes insert `0x0a` and bump the length.
+report ID `2` and a 63-byte data area in each direction. The wire format is
+`[0]=0x02`, `[1]=opcode`, `[2]=(len & 0x3F) | (seq<<6)`, `[3+]=payload`,
+zero-padded to 64 bytes; high-bit opcodes insert `0x0a` and bump the length.
+Established directly from the serializer, and corroborated on the read side by
+the EQ reader under read/write symmetry — see FINDINGS.md §4 for the precise
+limits of that second path.
+
+Because two of the 63 data bytes are the command header, the real payload
+capacity is **61 bytes** (**60** with the extended marker), not 63. `frame()`
+enforces this and `selftest` asserts the boundary.
 
 The card exposes **zero USB-Audio mixer controls**, so HID is the only control
 path — that is structural, not a configuration gap. The two audio functions are

@@ -113,7 +113,7 @@ So: **one report ID (`0x02`), 63 data bytes in each direction, 64 bytes on the w
 including the ID.** Both directions are opaque byte arrays — the descriptor carries
 no field semantics, which is why the protocol had to come from the binary.
 
-## 4. Wire format (CONFIRMED by two independent paths)
+## 4. Wire format (corroborated by a second code path)
 
 Target: `artifacts/classic-acc/ASTRO Command Center.exe`
 SHA-256 `991e558129af98765cba4f02b10fa5cc4d537e2b6bb4bd3032ca010832eb2dcf`
@@ -155,13 +155,37 @@ How each piece was established:
   The `((v+1) ^ v) & 0x3F ^ v` idiom increments the low 6 bits while preserving the
   two sequence bits. [STATIC]
   `ev_bea972d0c05c771d34c0ae5fef16463d2fa5e26f00e75a582eb56590471c35d7`
-- **Independent confirmation that payload begins at `wire[3]`** — the EQ reader
-  (§5) parses every device **response** starting at `QByteArray::data()[2]`, i.e.
-  offset 2 of the application packet = `wire[3]` after the report ID. Two unrelated
-  code paths agree on the same header size. [STATIC]
+- **Corroboration that payload begins at `wire[3]`** — the EQ reader (§5) parses
+  every device **response** starting at `QByteArray::data()[2]`, i.e. offset 2 of
+  the application packet: a two-byte header before the payload, matching the
+  `cmd` + `len|seq` pair above. [STATIC]
 
-Payload length lives in 6 bits, so **max payload is 63 bytes** — exactly the
-report's data capacity. Consistent, and a good sign the model is right.
+  Stated precisely: the serializer establishes the report ID at `wire[0]` and the
+  one-byte shift *directly*. The EQ reader establishes a two-byte application
+  header *on the read side*. Mapping that to `wire[3]` additionally assumes reads
+  strip the report ID symmetrically to how writes add it. That is a reasonable
+  assumption and the two observations reinforce each other, but the second is not
+  strictly independent of it — **[INFER, high]** rather than observed.
+
+  This does not affect the Linux decoder: `hidraw` returns the report ID as the
+  first byte for numbered reports, so `unframe()` in `tools/a50.py` is correct
+  either way.
+
+### Payload capacity
+
+The length field is 6 bits, so it can *encode* up to 63 — but that is not the
+real limit. The report descriptor declares 63 data bytes, two of which are the
+command header (`opcode`, `len|seq`). So the actual maximum payload is:
+
+- **61 bytes** for a normal opcode, and
+- **60 bytes** for a high-bit opcode, which spends one more byte on the `0x0A`
+  extended marker.
+
+Report capacity is the binding constraint, not the length field. `frame()` in
+`tools/a50.py` enforces 61/60 and `selftest` asserts the boundary in both
+directions — 61 accepted, 62 refused even though the length field could hold it.
+Worth stating explicitly because the 6-bit field invites the wrong limit, and an
+over-length buffer would be silently malformed rather than rejected.
 
 ## 5. EQ protocol — fully cross-validated
 
@@ -266,7 +290,16 @@ Named with direct evidence:
 | `0x64` | EQ band **frequencies** r/w | — | `KUIPER_RW_EQ_FREQS`, decompiled §5. **High** |
 | `0x66` | **Noise gate** set | `0x23` (35) | `KUIPER_SET_NOISEGATE`, decompiled §8. **High** |
 | `0x68` | **Sidetone** set | `0x25` (37) | `KUIPER_SET_SIDETONE`, decompiled §8. **High** |
-| `0xDA` | — | — | single site `0x4842d2`, high bit set → uses the extended `0x0A` form. **[UNKNOWN]** |
+| `0xDA` | — | — | single site `0x4842d2` in `FUN_00484280`. **[UNKNOWN] — treat as dangerous.** |
+
+**`0xDA` is the one opcode to leave strictly alone until it is identified.** It is
+the only observed opcode with the high bit set, therefore the only user of the
+extended `0x0A` framing form, it sits outside the contiguous `0x60`–`0x7C` block,
+and it has exactly one call site. That profile makes it the strongest candidate
+for the firmware-update path the handoff explicitly ring-fences. Nothing here
+proves that — it is **[UNKNOWN]** — which is precisely why it must not be probed.
+`FUN_00484280` should be the first target of the next Ghidra pass, specifically to
+rule in or out a firmware write before anyone builds a transmit path at all.
 
 The remaining ~25 opcodes in `0x60`–`0x7C` are **[UNKNOWN]**. They are real opcodes
 — the immediates are in the instruction stream — but nothing here establishes which
@@ -403,7 +436,34 @@ while `tools/a50-listen` records. Procedure: `docs/HARDWARE-TESTS.md`.
 Items 1 and 2 are zero-risk and read-only. Item 3 changes a live setting. None
 involve writing to the device.
 
-## 12. Prior art
+## 12. Preservation status, and what was deliberately not analyzed
+
+All four authorized trees were copied and verified **file-count and byte-exact**
+against their sources, so the preservation is known-complete rather than
+assumed-complete (`WindowsApps` in particular can silently skip ACL-restricted
+files):
+
+| Tree | Files | Bytes |
+|---|---|---|
+| `classic-acc` | 36 | 23,841,381 |
+| `store-acc` | 98 | 15,971,353 |
+| `appdata-classic` | 55 | 3,617,609 |
+| `appdata-store` | 6 | 215,341 |
+
+SHA-256 for every file: `evidence/ARTIFACT-MANIFEST.txt`. Source mtimes are
+unchanged (the classic EXE still reads 2021-05-05), confirming read-only access.
+
+**The Microsoft Store build 1.1.55.0 was preserved but deliberately not
+analyzed.** That is a scoping decision, not an oversight. It is 64-bit managed
+code (`AstroCommandCenter.dll`, `AstroGaming.Xbox.Devices.dll`, `.winmd`) and the
+handoff states it is the version that does *not* work with Ben's Gen 3 — so the
+classic native build was the authoritative target. It remains available for a
+comparison pass, which could be worthwhile: a managed assembly usually retains
+real method and enum names, so it is a plausible shortcut to naming the feature-ID
+enum and the unidentified opcodes in §7. Route it via
+`inspect_managed_artifact`, not Ghidra.
+
+## 13. Prior art
 
 Checked narrowly, as authorized. Public Linux Astro work I am aware of targets later
 generations under Logitech's `046d` VID; this Gen 3 base enumerates under Astro's own

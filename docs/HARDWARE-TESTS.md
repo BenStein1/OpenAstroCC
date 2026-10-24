@@ -55,26 +55,50 @@ Battery level, charge state and dock state are the plausible candidates. If
 reports arrive here but not in test 1, the device reports *state* but not
 *button events* — useful to know, and enough to build a read-only status client.
 
+**Partial result already in hand:** the listener was run for 12 s against the
+live headset with no interaction, and received **zero reports**. So the device
+does not stream unsolicited status while idle on that timescale. It may still
+report on a *change* (undock, mic flip, battery transition), which is what the
+steps above are for. This also confirms the listener itself opens, blocks and
+reports correctly against real hardware.
+
 ## Test 3 — Simultaneous Game + Voice (changes a live setting)
 
 This is the acceptance criterion that currently fails on Linux, and the
 investigation found it to be a profile problem, not a protocol one
-(`docs/FINDINGS.md` §10). **Your call to run; it will interrupt audio briefly.**
+(`docs/FINDINGS.md` §10). **Your call to run.**
+
+Two things to know first:
+
+- **This will drop whatever is currently playing.** The Voice PCM (`hw:1,0`) was
+  `Status: Running` during the inventory, so the A50 is in active use. Pick a
+  moment when you're not mid-something.
+- **Sink names change under `pro-audio`.** Any pinned default sink or per-app
+  routing will need re-pointing afterwards.
+
+### 3a — Test the hypothesis first, with no files and no restart
+
+Switch the profile directly. Instant, and instantly reversible:
 
 ```
-# before
-pactl list cards | grep -A12 'Astro'       # expect: Active Profile: output:iec958-stereo...
-pactl list sinks short
+pactl list sinks short                       # before: one A50 sink
 
-mkdir -p ~/.config/wireplumber/wireplumber.conf.d
-cp config/51-astro-a50-pro-audio.conf ~/.config/wireplumber/wireplumber.conf.d/
-systemctl --user restart wireplumber
-
-# after
-pactl list sinks short                      # expect TWO A50 sinks now
+pactl set-card-profile alsa_card.usb-Astro_Gaming_Astro_A50-00 pro-audio
+pactl list sinks short                       # expect TWO A50 sinks now
 ```
 
-Then the real test:
+Revert at any point with:
+
+```
+pactl set-card-profile alsa_card.usb-Astro_Gaming_Astro_A50-00 \
+    output:iec958-stereo+input:mono-fallback
+```
+
+Doing it this way separates *"is `pro-audio` the right answer?"* from *"does my
+config file make it stick?"* — so a config syntax problem can't masquerade as the
+profile being wrong.
+
+### 3b — The actual behaviour test
 
 1. Play game/music audio to the **Game** sink.
 2. Play chat/voice audio to the **Voice** sink **at the same time**.
@@ -87,8 +111,24 @@ That step 4 behaviour is the headset's own hardware mixer. If both streams are
 live and the control still does nothing, that is a finding worth recording —
 report what you observe rather than what the manual promises.
 
-Revert at any time: delete the copied file and
-`systemctl --user restart wireplumber`.
+### 3c — Make it persist (only if 3a/3b worked)
+
+`pactl set-card-profile` does not survive a reboot. For persistence:
+
+```
+mkdir -p ~/.config/wireplumber/wireplumber.conf.d
+cp config/51-astro-a50-pro-audio.conf ~/.config/wireplumber/wireplumber.conf.d/
+systemctl --user restart wireplumber
+pactl list cards | grep -A1 Astro_Gaming   # confirm Active Profile: pro-audio
+```
+
+If the profile does *not* come up as `pro-audio` after the restart, the profile
+choice is still correct — only the persistence mechanism needs another approach.
+WirePlumber 0.5 keeps its own persisted profile selection, so the alternative is
+`wpctl set-profile <card-id> <profile-index>` (card id from `wpctl status`), or
+clearing the stored selection in `~/.local/state/wireplumber/`.
+
+Revert: delete the copied file and `systemctl --user restart wireplumber`.
 
 To pick which sink is which: `pactl list sinks short` will show
 `...pro-output-0` and `...pro-output-1`. Expectation is 0 = Voice (2ch),
