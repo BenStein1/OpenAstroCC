@@ -1,3 +1,26 @@
+# Latest app milestone — 2026-10-24
+
+Recovered slot1 remains intact. Thirty live reversible checks pass: gains and
+all frequencies on three slots, all nine bell bandwidths, default balance,
+brightness and alert volume. Full EQ banks/mediator settings restored; no sync.
+Private evidence: `artifacts/backups/reversible-controls-2/`. Earlier status0
+brightness handling was corrected from actual ACC transport evidence; its
+restoration was separately confirmed under `reversible-controls-1/`.
+
+Native PyQt6 app: `/usr/bin/python3 tools/a50_gui.py`. System Python is required.
+Host desktop live smoke and actual GUI write-button gain change/readback/restore passed.
+Synthetic disconnect disabled writes; reconnect rediscovered/reloaded correctly. Final
+comparison proves recovered baseline intact. Evidence: `artifacts/backups/20261024-161552-9b5cbeb0/`.
+Snapshot values rendered, screenshot
+at `/tmp/a50-ui-smoke.png`. Offline smoke and backup/preset/selective-restore
+checks pass. Identity GET returns base36791/headset36154, evidence under
+`artifacts/backups/identity-read/`. Native writes have baseline/readback/rollback;
+explicit sync is implemented but has not been exercised. See docs/NATIVE-APP.md.
+Mic/stream integration awaits the independent mapping worker. Physical audio,
+Dolby/mute/charging transitions, real unplug/reinsert and persistence remain open.
+No profile change/sounds/global config/restart. Older investigation-only/no-write
+statements below are history, superseded by this checkpoint and FEATURES.
+
 # Latest checkpoint — slot 1 recovered (2026-10-24)
 
 The inherited uncommitted client/tests/baselines were preserved and continued.

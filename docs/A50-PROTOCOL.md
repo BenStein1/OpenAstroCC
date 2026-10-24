@@ -79,3 +79,54 @@ Full request/reply bytes and both decoded banks are retained in
 timeout, sequence, status, echo and payload length. Bank roles and settings
 writes remain unverified. The supervisor snapshot is
 `artifacts/analysis/a50-root-snapshot.json`; raw dossiers are beside it.
+
+
+## Continued A50 implementation (supersedes the initial implementation boundary)
+
+All entries below use the same SHA-256, PID15 registration and constructed
+Europa subdevices above. Private `trace-0x*.json` dossiers retain full evidence.
+The original wrong-class **two-byte** 0x63 probe is never exposed. The actual
+A50 **six-byte setter** is independently established; opcode identity alone
+never establishes request semantics.
+
+| Operation | Exact request payload | Success data after stripping report/status/length | Static path |
+|---|---|---|---|
+| Gain GET 0x69 | slot1..3 | echo69,slot; working5; stored5, each raw-12 | 0x485fd0 |
+| Gain SET 0x63 | slot; five gain+12 bytes | echo63,slot | 0x488ab0, bounds0x485cb0: -12..12 |
+| Coefficient GET 0x70 | slot;band1..5 | echo70,slot,band; LE16 workingBW,storedBW,workingHz,storedHz | 0x485fd0 |
+| Coefficient SET 0x6f | slot;band;LE16 BW;LE16 Hz | echo6f,slot,band | 0x489f10; 80..15000Hz, bell0.1..3 octaves; shelvesBW0 |
+| Default balance GET/SET 0x77/0x73 | empty / one byte0..255 | GET value; SET echo73 | 0x4862b0/0x488d10; bounds0x485710 |
+| Brightness GET/SET 0x79/0x75 | empty / nine bytes20..70 (ACC fills uniformly) | GET nine channels; SET empty status0 observed | same |
+| Alert GET/SET 0x7a/0x76 | empty / byte0..100 | GET value; SET echo76 | same |
+| Current UI GET 0x72 | byte01 | 16bytes, no opcode echo | 0x48a210 |
+| Base/headset identity GET 0x03/0x83 | empty / extended marker0a only | 37bytes, no opcode echo; firmware LE32 at payload+21 | 0x484440(param1/0),0x484540,0x484170 |
+| Persistent sync 0x61 | empty | echo61; result0 means complete, result2 busy | 0x488d10 feature4 |
+
+Current UI payload+6 is selected hardware EQ1..3 (0x488540), +10 is
+hardware balance0..255 (0x488950), +14 has battery0..100 in low7bits and
+charging in highbit (0x488790). Other status bytes are retained raw; Dolby,
+flip mute and connection bits are not guessed from their values.
+
+Identity branch: runtime PID15 differs from PID14, choosing03 for base and83
+for headset. The latter uses the shared high-bit extended marker, not a guessed
+payload. 0x484440 copies37 reply bytes. 0x484540 and0x484170 use the uint32 at
+struct+21 for base/headset firmware. Live read returned36791/36154.
+
+Bank semantics and safe recovery are documented in EQ-RECOVERY.md. Apply invokes
+0x61, then on completion copies working app caches to stored caches through
+subdevice vtables. It persists all settings, so it must be explicit. The client
+never retries a busy sync automatically and verifies EQ bank equality after ACK.
+Persistence across device power loss is still untested.
+
+Brightness is the exception to status2: actual replies are status0 with an empty
+payload. 0x488d10 uses0x490770 (no echo check), and transport0x494b10 accepts
+status0 when allowed by its caller. The native client permits empty status0 only
+for0x75, then reads all nine channels back. All other enabled operations still
+require status2 plus their exact expected echo/length where present.
+
+Live reversible checks pass for30 controls (3gain groups,15frequencies,9bell
+bandwidths,3mediator controls). Full final snapshot equals the recovered baseline
+for all captured EQ banks and mediator settings. Capture in ignored
+`artifacts/backups/reversible-controls-2/`. These checks prove numeric settings
+round trips; physical listening, visual brightness, charging transitions and
+reconnect persistence are distinct outstanding gates.

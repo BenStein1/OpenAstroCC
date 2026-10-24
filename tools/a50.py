@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
-"""Astro A50 Gen 3 (USB 9886:0015) — read-only inventory, passive HID listener,
-offline .astroeq decoding, and a model-bound EQ gains read.
+"""Astro A50 Gen 3 (USB 9886:0015) — native settings and evidence client.
 
-`eq-read` sends opcode **0x69** (one-byte slot payload), the request bound to
-the actual `Devices::AstroA50`/Europa constructor and vtable path, per
-docs/A50-PROTOCOL.md. This supersedes the earlier opcode 0x63/{page,slot}
-request, which docs/FINDINGS.md §14.3 traced to `Devices::AstroA20`
-(PID 0x9886:0x1c) instead -- that command remains removed, not revived.
+Only A50/Europa-bound operations are enabled (docs/A50-PROTOCOL.md).
+The earlier wrong-class two-byte0x63 probe remains removed. The independently
+verified A50 six-byte0x63 setter is bounded, backed up and read back.
+No raw opcode, firmware or reset command is exposed. Native UI: a50_gui.py.
 
-Subcommands:
-  inventory   identify the device and its audio topology from sysfs/procfs
-  listen      passively read HID input reports and decode their framing
-  eq          decode and validate an offline .astroeq preset
-  eq-read     read EQ gain bytes for one slot (opcode 0x69); see docs/A50-PROTOCOL.md
-  selftest    assert the decoders behave (no hardware needed)
 """
 
 import configparser
@@ -48,13 +40,9 @@ MAX_PAYLOAD_EXTENDED = 60
 # Opcodes with direct evidence. Everything else in 0x60..0x7c is real but
 # unidentified -- see docs/FINDINGS.md §7. Absent here means "unknown", never
 # "doesn't exist".
-OPCODES = {
-    0x63: "RW_EQ_GAINS",
-    0x64: "RW_EQ_FREQS",
-    0x66: "SET_NOISEGATE",
-    0x68: "SET_SIDETONE",
-    0x69: "READ_EQ_GAINS",  # AstroA50-bound; docs/A50-PROTOCOL.md
-}
+OPCODES = {0x63: "SET_EQ_GAINS", 0x69: "READ_EQ_GAINS",
+           0x6f: "SET_EQ_COEFFICIENTS", 0x70: "READ_EQ_COEFFICIENTS",
+           0x72: "READ_CURRENT_UI", 0x61: "SYNC"}
 
 
 # --- protocol framing (docs/FINDINGS.md §4) --------------------------------
@@ -62,8 +50,7 @@ OPCODES = {
 def frame(cmd, payload, seq=0):
     """Build a 64-byte report per the evidenced KUIPER framing.
 
-    Used by selftest and to document the format executably. Intentionally not
-    wired to any transmit path.
+    Shared by the bounded model-specific client and offline checks.
     """
     if not 0 <= cmd <= 0xFF:
         raise ValueError("cmd out of range: %r" % cmd)
@@ -376,7 +363,8 @@ class A50Client:
 
     def _exchange(self, opcode, payload=b"", echo=b"", minimum=0):
         # Private allowlist, never exposed as a CLI or UI raw-command feature.
-        if opcode not in (0x69, 0x70, 0x77, 0x79, 0x7a, 0x72, 0x63, 0x6f, 0x73, 0x75, 0x76):
+        if opcode not in (0x69, 0x70, 0x77, 0x79, 0x7a, 0x72, 0x63, 0x6f, 0x73, 0x75, 0x76,
+                          0x03, 0x83, 0x61):
             raise ValueError("operation is not enabled")
         if self.fd is None:
             raise EqReadError("client is not open")
@@ -391,7 +379,9 @@ class A50Client:
         if raw is None:
             raise EqReadError("no matching reply within 2s (timeout or disconnected)")
         status, _, data = unframe(raw)
-        if status != 2:
+        # ACC 0x494b10 accepts status0 when its caller permits an empty ACK;
+        # the brightness setter uses 0x490770, with no echo, then GET readback.
+        if status != 2 and not (opcode == 0x75 and status == 0 and not data):
             code = int.from_bytes(data[:4], "little") if len(data) >= 4 else None
             message = data[4:].split(bytes(1), 1)[0].decode("ascii", "replace")
             raise EqReadError("device error: status=%02x code=%r message=%r" % (status, code, message))
@@ -433,26 +423,41 @@ class A50Client:
         data = self._exchange(0x72, bytes([1]), minimum=16)
         # Mediator init: battery low 7 bits and charging high bit of app byte 16.
         return {"raw": data[:16].hex(), "battery": data[14] & 127,
-                "charging": bool(data[14] & 128), "status_byte": data[10]}
+                "charging": bool(data[14] & 128), "status_byte": data[10],
+                "current_balance": data[10], "eq_slot": data[6]}
+
+    def identity(self):
+        # 0x484440(param_2=1/0), through actual A50 runtime PID15 (not PID14).
+        # Preserve all 37 bytes; firmware version is the uint32 at struct+21.
+        result = {}
+        for name, opcode in (("base", 0x03), ("headset", 0x83)):
+            data = self._exchange(opcode, minimum=37)
+            result[name] = {"raw": data[:37].hex(),
+                            "firmware_version": struct.unpack_from("<I", data, 21)[0]}
+        return result
+
+    def sync(self):
+        """Explicit persistent apply of ALL working settings, never automatic."""
+        data = self._exchange(0x61, echo=b"\x61", minimum=2)
+        if data[1] != 0:
+            raise EqReadError("sync did not complete (code %d); not retried" % data[1])
+        after = self.snapshot()
+        if any(slot["gains"]["working"] != slot["gains"]["stored"] or any(
+                band["working"] != band["stored"] for band in slot["bands"])
+               for slot in after["slots"]):
+            raise EqReadError("sync acknowledged but EQ banks still differ")
+        return after
 
     def set_gains(self, slot, gains):
         self._slot(slot)
-        if len(gains) != 5 or any(type(g) is not int or not -12 <= g <= 12 for g in gains):
-            raise ValueError("five integer gains in -12..12 dB required")
+        validate_gains(gains)
         self._exchange(0x63, bytes([slot] + [g + 12 for g in gains]), bytes([0x63, slot]), 2)
         if self.gains(slot)["working"] != gains:
             raise EqReadError("EQ gains readback differs from requested values")
 
     def set_coefficients(self, slot, band, frequency, bandwidth_raw):
         self._slot(slot)
-        if type(band) is not int or band not in range(1, 6):
-            raise ValueError("band must be 1 through 5")
-        if type(frequency) is not int or not 80 <= frequency <= 15000:
-            raise ValueError("frequency must be an integer in 80..15000 Hz")
-        # Shelf bands have no bandwidth control; retain their evidenced zero.
-        if type(bandwidth_raw) is not int or (band in (1, 5) and bandwidth_raw != 0) or (
-                band in (2, 3, 4) and not 409 <= bandwidth_raw <= 12288):
-            raise ValueError("bandwidth must be 0 for shelves, or 0.1..3 octaves in 4.12")
+        validate_coefficients(band, frequency, bandwidth_raw)
         payload = bytes([slot, band]) + struct.pack("<HH", bandwidth_raw, frequency)
         self._exchange(0x6f, payload, bytes([0x6f, slot, band]), 3)
         expected = {"frequency": frequency, "bandwidth_raw": bandwidth_raw}
@@ -460,15 +465,11 @@ class A50Client:
             raise EqReadError("EQ coefficients readback differs from requested values")
 
     def set_setting(self, name, value):
+        validate_setting(name, value)
         if name == "brightness_channels":
-            if not isinstance(value, list) or len(value) != 9 or any(
-                    type(v) is not int or not 20 <= v <= 70 for v in value):
-                raise ValueError("nine brightness channels in 20..70 required")
             self._exchange(0x75, bytes(value))
         else:
-            opcode, maximum = {"default_balance": (0x73, 255), "alert_volume": (0x76, 100)}[name]
-            if type(value) is not int or not 0 <= value <= maximum:
-                raise ValueError("%s must be an integer in 0..%d" % (name, maximum))
+            opcode = {"default_balance": 0x73, "alert_volume": 0x76}[name]
             self._exchange(opcode, bytes([value]), bytes([opcode]), 1)
         if self.settings()[name] != value:
             raise EqReadError("%s readback differs from requested value" % name)
@@ -481,6 +482,153 @@ class A50Client:
         return {"schema": "astro-a50-gen3-v1", "vid": VID, "pid": PID,
                 "slots": slots, "settings": self.settings(), "status": self.status()}
 
+
+
+def validate_backup(document):
+    """Validate the entire imported settings document before any transport."""
+    if not isinstance(document, dict) or document.get("schema") != "astro-a50-gen3-v1" or (
+            type(document.get("vid")) is not int or document["vid"] != VID or
+            type(document.get("pid")) is not int or document["pid"] != PID):
+        raise ValueError("backup must be astro-a50-gen3-v1 for USB 9886:0015")
+    slots = document.get("slots")
+    if not isinstance(slots, list) or len(slots) != 3:
+        raise ValueError("backup requires exactly three slots")
+    for index, slot in enumerate(slots, 1):
+        if slot["slot"] != index or type(slot["slot"]) is not int or len(slot["bands"]) != 5:
+            raise ValueError("backup slots must be ordered 1..3, with five bands")
+        for bank in ("working", "stored"):
+            validate_gains(slot["gains"][bank])
+            for band, values in enumerate(slot["bands"], 1):
+                validate_coefficients(band, values[bank]["frequency"], values[bank]["bandwidth_raw"])
+    if set(document["settings"]) != {"default_balance", "brightness_channels", "alert_volume"}:
+        raise ValueError("backup mediator settings are missing or unknown")
+    for name, value in document["settings"].items():
+        validate_setting(name, value)
+    return document
+
+
+def validate_gains(gains):
+    if not isinstance(gains, list) or len(gains) != 5 or any(
+            type(g) is not int or not -12 <= g <= 12 for g in gains):
+        raise ValueError("five integer gains in -12..12 dB required")
+
+
+def validate_coefficients(band, frequency, bandwidth_raw):
+    if type(band) is not int or band not in range(1, 6):
+        raise ValueError("band must be 1 through 5")
+    if type(frequency) is not int or not 80 <= frequency <= 15000:
+        raise ValueError("frequency must be an integer in 80..15000 Hz")
+    if type(bandwidth_raw) is not int or (band in (1, 5) and bandwidth_raw != 0) or (
+            band in (2, 3, 4) and not 409 <= bandwidth_raw <= 12288):
+        raise ValueError("bandwidth must be 0 for shelves, or 0.1..3 octaves in 4.12")
+
+
+def validate_setting(name, value):
+    if name == "brightness_channels":
+        if not isinstance(value, list) or len(value) != 9 or any(
+                type(v) is not int or not 20 <= v <= 70 for v in value):
+            raise ValueError("nine brightness channels in 20..70 required")
+    elif name in ("default_balance", "alert_volume"):
+        maximum = 255 if name == "default_balance" else 100
+        if type(value) is not int or not 0 <= value <= maximum:
+            raise ValueError("%s must be an integer in 0..%d" % (name, maximum))
+    else:
+        raise ValueError("unknown setting: %s" % name)
+
+
+def restore_working(client, document, bank="working"):
+    """Restore selected bank to working settings only. Does not sync storage."""
+    validate_backup(document)
+    if bank not in ("working", "stored"):
+        raise ValueError("bank must be working or stored")
+    current = client.snapshot()
+    for target, actual in zip(document["slots"], current["slots"]):
+        slot = target["slot"]
+        if target["gains"][bank] != actual["gains"]["working"]:
+            client.set_gains(slot, target["gains"][bank])
+        for band, (wanted, old) in enumerate(zip(target["bands"], actual["bands"]), 1):
+            if wanted[bank] != old["working"]:
+                client.set_coefficients(slot, band, **wanted[bank])
+    for name, value in document["settings"].items():
+        if value != current["settings"][name]:
+            client.set_setting(name, value)
+    after = client.snapshot()
+    for wanted, actual in zip(document["slots"], after["slots"]):
+        if wanted["gains"][bank] != actual["gains"]["working"] or any(
+                x[bank] != y["working"] for x, y in zip(wanted["bands"], actual["bands"])):
+            raise EqReadError("restored EQ differs from selected backup bank")
+    if after["settings"] != document["settings"]:
+        raise EqReadError("restored mediator settings differ from backup")
+    for old, actual in zip(current["slots"], after["slots"]):
+        if old["gains"]["stored"] != actual["gains"]["stored"] or any(
+                x["stored"] != y["stored"] for x, y in zip(old["bands"], actual["bands"])):
+            raise EqReadError("unexpected stored EQ change without sync")
+    return after
+
+
+def save_json(path, value):
+    with open(path, "x", encoding="utf-8") as fh:
+        json.dump(value, fh, indent=2)
+        fh.write("\n")
+
+
+def change_with_backup(action, directory=None, persistent=False):
+    """Save baseline, perform bounded action, save readback and capture even on error."""
+    from pathlib import Path
+    import uuid
+    root = Path(__file__).resolve().parent.parent
+    directory = Path(directory) if directory else root / "artifacts/backups" / (
+        time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8])
+    directory.mkdir(parents=True, exist_ok=False)
+    with A50Client() as client:
+        try:
+            before = client.snapshot()
+            save_json(directory / "before.json", before)
+            action(client, before)
+            after = client.snapshot()
+            save_json(directory / "after.json", after)
+            return after, str(directory)
+        except Exception:
+            if not persistent and "before" in locals():
+                try:
+                    restored = restore_working(client, before)
+                    save_json(directory / "restored.json", restored)
+                except Exception as exc:
+                    save_json(directory / "restoration-error.json", {"error": str(exc)})
+                    raise EqReadError("rollback incomplete; retain baseline at %s: %s" % (directory, exc))
+            raise
+        finally:
+            save_json(directory / "capture.json", client.capture)
+
+
+def import_preset(document, slot, path):
+    """Return a validated backup with this preset in one working slot."""
+    import copy
+    A50Client._slot(slot)
+    result = copy.deepcopy(document)
+    preset = load_astroeq(path)
+    target = result["slots"][slot - 1]
+    target["gains"]["working"] = preset["gains"]
+    for band, values in enumerate(target["bands"], 1):
+        values["working"] = {"frequency": preset["freqs"][band-1], "bandwidth_raw":
+            int(preset["bandwidths"][band] * 4096) if band in BANDWIDTH_BANDS else 0}
+    return validate_backup(result)
+
+
+def export_preset(document, slot, path):
+    validate_backup(document)
+    A50Client._slot(slot)
+    target = document["slots"][slot - 1]
+    cp = configparser.ConfigParser()
+    cp.optionxform = str
+    cp["General"] = {"Name": "A50 slot %d" % slot}
+    cp["Eq_Bands"] = {
+        **{"Eq_Band_%d" % i: str(g) for i, g in enumerate(target["gains"]["working"], 1)},
+        **{"Eq_Freq_Band_%d" % i: str(v["working"]["frequency"]) for i, v in enumerate(target["bands"], 1)},
+        **{"Eq_Bandwidth_%d" % i: str(target["bands"][i-1]["working"]["bandwidth_raw"] / 4096)
+           for i in BANDWIDTH_BANDS}}
+    with open(path, "x", encoding="utf-8") as fh:
+        cp.write(fh)
 
 def cmd_snapshot(args):
     try:

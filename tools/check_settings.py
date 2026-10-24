@@ -42,43 +42,71 @@ def offline():
     print('settings offline checks OK')
 
 
-def live(output):
-    # No sync/persistence command. Only working EQ and mediator controls change.
-    with a50.A50Client() as client:
-        baseline = client.snapshot()
-        with open(output, 'x') as fh:
-            json.dump(baseline, fh, indent=2)
-        slot = baseline['slots'][1]
-        gains = slot['gains']['working']
-        band = slot['bands'][1]['working']
-        settings = baseline['settings']
+
+def backup_checks():
+    import tempfile
+    root = Path(__file__).resolve().parent.parent
+    # Historical corruption is test input only, never a hardware restore target.
+    document = json.loads((root / 'evidence/a50-baseline.json').read_text())
+    document['slots'][0]['gains']['working'] = document['slots'][0]['gains']['stored'].copy()
+    a50.validate_backup(document)
+    for mutate in [lambda d: d.update(pid=0x1c), lambda d: d.update(schema='wrong'),
+                   lambda d: d['slots'].pop(),
+                   lambda d: d['slots'][0]['gains'].update(working=[False]*5),
+                   lambda d: d['slots'][0]['bands'][1]['stored'].update(frequency=15001),
+                   lambda d: d['settings'].update(brightness_channels=[70]*8),
+                   lambda d: d['settings'].update(alert_volume=101)]:
+        bad = copy.deepcopy(document)
+        mutate(bad)
         try:
-            changed = gains.copy()
-            changed[0] += 1 if changed[0] < 12 else -1
-            client.set_gains(2, changed)
-            client.set_coefficients(2, 2, band['frequency'] + (1 if band['frequency'] < 15000 else -1), band['bandwidth_raw'])
-            client.set_setting('default_balance', settings['default_balance'] + (1 if settings['default_balance'] < 255 else -1))
-            client.set_setting('alert_volume', settings['alert_volume'] + (1 if settings['alert_volume'] < 100 else -1))
-            client.set_setting('brightness_channels', [v + (1 if v < 70 else -1) for v in settings['brightness_channels']])
-        finally:
-            # Attempt every restoration even when one transport operation fails.
-            errors = []
-            for restore in [lambda: client.set_gains(2, gains),
-                            lambda: client.set_coefficients(2, 2, band['frequency'], band['bandwidth_raw']),
-                            *(lambda k=k: client.set_setting(k, settings[k]) for k in settings)]:
-                try:
-                    restore()
-                except Exception as exc:
-                    errors.append(str(exc))
-            with open(str(output)+'.capture.json', 'x') as fh:
-                json.dump(client.capture, fh, indent=2)
-            if errors:
-                raise a50.EqReadError('RESTORATION FAILED; baseline at %s: %s' % (output, errors))
-        after = client.snapshot()
-        assert baseline['slots'] == after['slots'], 'EQ banks changed after restoration'
-        assert settings == after['settings'], 'settings changed after restoration'
-        Path(str(output)+'.restored.json').write_text(json.dumps(after, indent=2)+'\n')
-        print('live gain, frequency, balance, alert and brightness round trips OK; original settings restored')
+            a50.validate_backup(bad)
+        except (ValueError, TypeError, KeyError):
+            pass
+        else:
+            raise AssertionError('malformed backup accepted')
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / 'slot.astroeq'
+        a50.export_preset(document, 1, path)
+        imported = a50.import_preset(document, 1, path)
+        assert imported == document, 'preset import must preserve exact raw bandwidth'
+        class Fake:
+            def __init__(self):
+                self.document = copy.deepcopy(document)
+                self.writes = []
+            def snapshot(self): return copy.deepcopy(self.document)
+            def set_gains(self, slot, gains):
+                self.writes.append(('gains',slot))
+                self.document['slots'][slot-1]['gains']['working'] = gains.copy()
+            def set_coefficients(self, slot, band, **values):
+                self.writes.append(('coefficients',slot,band))
+                self.document['slots'][slot-1]['bands'][band-1]['working'] = values
+            def set_setting(self, name, value):
+                self.writes.append(('settings',name))
+                self.document['settings'][name] = copy.deepcopy(value)
+        fake = Fake()
+        assert a50.restore_working(fake, document) == document
+        assert not fake.writes, 'identical restore must send no setters'
+        target = copy.deepcopy(document)
+        target['slots'][1]['gains']['working'][0] += 1
+        target['slots'][2]['bands'][2]['working']['frequency'] += 1
+        target['settings']['alert_volume'] -= 1
+        assert a50.restore_working(fake, target) == target
+        assert len(fake.writes) == 3
+        assert a50.restore_working(fake, document) == document
+        # Reject stale/wrong identity before any snapshot or write.
+        with patch.object(fake, 'snapshot', side_effect=AssertionError('invalid import touched device')):
+            try: a50.restore_working(fake, {'schema':'wrong'})
+            except ValueError: pass
+            else: raise AssertionError('invalid import accepted')
+    # Brightness-only status0 is allowed; all other operations still require2.
+    zero = a50.frame(0, b'', 0)
+    client = a50.A50Client('/mock'); client.fd = 99
+    with patch.object(a50.os, 'write', return_value=64), patch.object(a50, '_read_reply', return_value=zero):
+        assert client._exchange(0x75, bytes([70]*9)) == b''
+        try: client._exchange(0x77)
+        except a50.EqReadError: pass
+        else: raise AssertionError('status0 accepted for GET')
+    print('backup validation, exact preset round trip, selective restore and ACK checks OK')
 
 
 if __name__ == '__main__':
@@ -86,5 +114,7 @@ if __name__ == '__main__':
     parser.add_argument('--live', metavar='NEW_BASELINE_FILE')
     args = parser.parse_args()
     offline()
+    backup_checks()
     if args.live:
-        live(args.live)
+        from check_live import run
+        run(args.live)
