@@ -7,8 +7,8 @@ verification separate in docs/FEATURES.md. This is not complete yet.
 ## Active workers
 
 - **Astra-recover-complete**: Codex `gpt-6.1-sol`, Nori ID
-  `bcf7b754-4adb-4666-a2d5-9ac38fa18f3b`. Slot1 working-EQ recovery FIRST,
-  then primary implementation, EQ/status/mediator, UI and integration. Read
+  `bcf7b754-4adb-4666-a2d5-9ac38fa18f3b`. Slot1 recovery verified at `2561494`;
+  continuing primary implementation, EQ/status/mediator, UI and integration. Read
   ../RESUME.md and EQ-RECOVERY.md. Must commit milestones locally; no push.
 - **Astra-mic-map**: `litellm/nvidia-free-fast`, Nori ID
   `4e1d4ca4-17ef-4201-8000-e7944c30a808`. Read-only static mapping of A50

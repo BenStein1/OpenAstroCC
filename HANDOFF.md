@@ -14,8 +14,9 @@ Older unresolved-bank and no-write descriptions below are superseded.
 
 **Latest checkpoint is [RESUME.md](RESUME.md). Read it first.** The full A50
 setter trace strongly indicates the earlier short `0x63` probes modified slot1
-working gains. Stored gains remain available. Recovery is assigned to the active
-Codex worker and was not yet verified when this checkpoint was written. Older
+working gains. Recovery is now verified at commit `2561494`: working and
+stored slot1 gains match, other captured fields/settings are unchanged, and
+no persistent sync was sent. The active Codex worker continues controls/UI. Older
 “current result” sections below precede this discovery.
 
 Updated 2026-10-24. Start with PROJECT.md and docs/A50-PROTOCOL.md (the
