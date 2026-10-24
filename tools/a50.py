@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Astro A50 Gen 3 (USB 9886:0015) — read-only inventory, passive HID listener,
-and offline .astroeq decoding.
+offline .astroeq decoding, and one evidenced live EQ read.
 
-This tool NEVER writes to the headset. There is no code path here that opens a
-hidraw node for writing, and none that sends a report. That is deliberate: the
-response framing is evidenced (docs/FINDINGS.md §4-5) but the valid ranges and
-most opcode meanings are not, so writes would be guesswork. Don't add one until
+This tool has exactly one path that writes to the headset: `eq-read`. It sends
+only the KUIPER_RW_EQ_GAINS request (opcode 0x63, payload {page, slot}) that
+the stock app itself issues at startup to read current EQ state back
+(docs/FINDINGS.md §5), and validates the reply the same way the decompiled
+app does (status byte, 2-bit sequence match -- docs/FINDINGS.md §14). There is
+no generic/raw opcode argument and no settings-write path. Don't add one until
 the gaps in FINDINGS.md §7 are closed.
 
 Subcommands:
   inventory   identify the device and its audio topology from sysfs/procfs
   listen      passively read HID input reports and decode their framing
   eq          decode a .astroeq preset into the device's on-wire representation
+  eq-read     send the evidenced EQ-gains read request and print the live reply
   selftest    assert the decoders behave (no hardware needed)
 """
 
@@ -19,7 +22,9 @@ import configparser
 import glob
 import math
 import os
+import select
 import sys
+import time
 
 VID, PID = 0x9886, 0x0015
 HID_ID = "0003:%08X:%08X" % (VID, PID)
@@ -278,6 +283,81 @@ def cmd_listen(args):
     return 0
 
 
+def _read_one_report(fd, timeout):
+    """Block for one input report with a bounded, tool-chosen timeout.
+
+    The app's own blocking read (FUN_00494b10's getReport call) has no
+    traceable timeout in this binary -- ReadFile has zero call sites in this
+    EXE, so that wait lives in a vendor HID backend outside this analysis
+    pass (docs/FINDINGS.md §14). This timeout is ours, not evidenced from the
+    device.
+    """
+    deadline = time.monotonic() + timeout
+    remaining = deadline - time.monotonic()
+    while remaining > 0:
+        ready, _, _ = select.select([fd], [], [], remaining)
+        if ready:
+            return os.read(fd, REPORT_LEN)
+        remaining = deadline - time.monotonic()
+    raise TimeoutError("no reply within %.1fs" % timeout)
+
+
+def query_eq_gains(path, slot, page, timeout=2.0):
+    """Send the evidenced KUIPER_RW_EQ_GAINS read request for one slot/page
+    and return the device's 5 signed-byte gains.
+
+    This is the exact read the stock app performs at startup for every slot
+    (docs/FINDINGS.md §5); nothing is written to any setting. Reply
+    validation follows the decompiled FUN_00494b10/FUN_00479f70 chain: the
+    reply's status byte must be 0x02 (anything else is an app-defined error
+    packet) and its 2-bit sequence must match what we sent (§14). Raises
+    OSError, TimeoutError or RuntimeError on any failure; never retries or
+    guesses -- a mismatch is reported, not papered over.
+    """
+    if page not in (0, 1):
+        raise ValueError("page must be 0 or 1")
+    if slot not in (0, 1, 2):
+        raise ValueError("slot must be 0, 1 or 2")
+    seq = 0
+    req = frame(0x63, bytes([page, slot]), seq)
+    fd = os.open(path, os.O_RDWR)
+    try:
+        os.write(fd, req)
+        reply = _read_one_report(fd, timeout)
+    finally:
+        os.close(fd)
+    decoded = unframe(reply)
+    if decoded is None:
+        raise RuntimeError("malformed reply report: %s" % reply.hex(" "))
+    status, reply_seq, payload = decoded
+    if reply_seq != seq:
+        raise RuntimeError(
+            "sequence mismatch: sent seq=%d, device replied seq=%d (stray report?)"
+            % (seq, reply_seq))
+    if status != 0x02:
+        raise RuntimeError(
+            "device returned error status 0x%02x instead of success (0x02); "
+            "payload=%s -- see docs/FINDINGS.md §14 for the error-packet layout"
+            % (status, payload.hex(" ")))
+    if len(payload) < 5:
+        raise RuntimeError("reply payload too short for 5 gain bytes: %s" % payload.hex(" "))
+    return [b if b < 128 else b - 256 for b in payload[:5]]
+
+
+def cmd_eq_read(args):
+    path = args.device or find_hidraw()
+    if not path:
+        print("A50 control interface not found.", file=sys.stderr)
+        return 1
+    try:
+        gains = query_eq_gains(path, args.slot, args.page)
+    except (OSError, TimeoutError, RuntimeError) as exc:
+        print("eq-read failed: %s" % exc, file=sys.stderr)
+        return 1
+    print("slot %d page %d gains (dB, 5 bands): %s" % (args.slot, args.page, gains))
+    return 0
+
+
 def cmd_eq(args):
     preset = load_astroeq(args.path)
     enc = encode_eq(preset)
@@ -392,6 +472,55 @@ def cmd_selftest(_args):
             read_mock.assert_called_once_with(99, 64)
             close_mock.assert_called_once_with(99)
 
+    # eq-read: validate the request bytes we send, and that we tell apart a
+    # successful reply from a sequence mismatch and from an error status
+    # (docs/FINDINGS.md §14 -- the decompiled FUN_00494b10/FUN_00479f70 chain).
+    good_reply = frame(0x02, bytes([5, 253, 0, 7, 255]), seq=0)  # signed: 5, -3, 0, 7, -1
+    with patch.object(os, "open", return_value=77) as open_mock, \
+            patch.object(os, "write") as write_mock, \
+            patch.object(select, "select", return_value=([77], [], [])), \
+            patch.object(os, "read", return_value=good_reply), \
+            patch.object(os, "close"):
+        gains = query_eq_gains("/mock-hid", slot=1, page=0)
+        open_mock.assert_called_once_with("/mock-hid", os.O_RDWR)
+        sent = write_mock.call_args[0][1]
+        assert sent[:5] == bytes([0x02, 0x63, 2, 0, 1]), sent[:5].hex(" ")  # cmd 0x63, len=2 seq=0, payload={page=0,slot=1}
+        assert gains == [5, -3, 0, 7, -1], gains
+
+    wrong_seq_reply = frame(0x02, b"\x00" * 5, seq=1)
+    with patch.object(os, "open", return_value=77), patch.object(os, "write"), \
+            patch.object(select, "select", return_value=([77], [], [])), \
+            patch.object(os, "read", return_value=wrong_seq_reply), \
+            patch.object(os, "close"):
+        try:
+            query_eq_gains("/mock-hid", slot=0, page=0)
+        except RuntimeError as exc:
+            assert "sequence mismatch" in str(exc), exc
+        else:
+            raise AssertionError("sequence mismatch must raise")
+
+    error_reply = frame(0x7F, b"\x00" * 5, seq=0)
+    with patch.object(os, "open", return_value=77), patch.object(os, "write"), \
+            patch.object(select, "select", return_value=([77], [], [])), \
+            patch.object(os, "read", return_value=error_reply), \
+            patch.object(os, "close"):
+        try:
+            query_eq_gains("/mock-hid", slot=0, page=0)
+        except RuntimeError as exc:
+            assert "error status" in str(exc), exc
+        else:
+            raise AssertionError("non-0x02 status must raise")
+
+    with patch.object(os, "open", return_value=77), patch.object(os, "write"), \
+            patch.object(select, "select", return_value=([], [], [])), \
+            patch.object(os, "close"):
+        try:
+            query_eq_gains("/mock-hid", slot=0, page=0, timeout=0.01)
+        except TimeoutError:
+            pass
+        else:
+            raise AssertionError("no reply must time out, not hang")
+
     # Parse the real shipped presets if preserved, and check the schema the
     # decompiled reader implies: 5 gains, 5 freqs, 3 bandwidths for bands 2-4.
     here = os.path.dirname(os.path.abspath(__file__))
@@ -428,10 +557,16 @@ def main():
     listen.add_argument("-d", "--device", help="hidraw path (default: autodetect)")
     eq = sub.add_parser("eq", help="decode a .astroeq preset")
     eq.add_argument("path")
+    eqread = sub.add_parser(
+        "eq-read",
+        help="send the evidenced EQ-gains read request and print the live reply")
+    eqread.add_argument("-d", "--device", help="hidraw path (default: autodetect)")
+    eqread.add_argument("--slot", type=int, choices=(0, 1, 2), required=True)
+    eqread.add_argument("--page", type=int, choices=(0, 1), required=True)
     sub.add_parser("selftest", help="run offline assertions")
     args = parser.parse_args()
-    return {"inventory": cmd_inventory, "listen": cmd_listen,
-            "eq": cmd_eq, "selftest": cmd_selftest}[args.cmd](args)
+    return {"inventory": cmd_inventory, "listen": cmd_listen, "eq": cmd_eq,
+            "eq-read": cmd_eq_read, "selftest": cmd_selftest}[args.cmd](args)
 
 
 if __name__ == "__main__":

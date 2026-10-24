@@ -21,7 +21,7 @@ For a context reset, start with [HANDOFF.md](HANDOFF.md) and [PROJECT.md](PROJEC
 |---|---|
 | `docs/FINDINGS.md` | **Start here.** Full findings: device identity, USB topology, HID wire format, EQ protocol, opcode space, open unknowns, evidence IDs. |
 | `docs/HARDWARE-TESTS.md` | The four tests that need Ben at the hardware, with exact commands. |
-| `tools/a50.py` | Read-only inventory, passive HID listener, offline `.astroeq` decoder, selftest. |
+| `tools/a50.py` | Read-only inventory, passive HID listener, offline `.astroeq` decoder, one evidenced live EQ-gains read, selftest. |
 | `config/51-astro-a50-pro-audio.conf` | WirePlumber rule exposing both Game and Voice. **Not installed.** |
 | `evidence/` | Raw hardware evidence: `lsusb -v`, HID report descriptor, ALSA stream maps, PipeWire card dump. |
 | `artifacts/` | Preserved Windows app trees and settings. **Git-ignored, never commit** — proprietary binaries and personal settings. |

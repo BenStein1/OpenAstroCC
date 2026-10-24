@@ -2,7 +2,7 @@
 name: Astro A50 Linux
 status: active
 summary: Native Linux support for the Astro A50 Gen 3 headset, including Command Center settings and separate Game and Voice audio paths.
-next: Trace verified settings/status reads and feature bounds in Ghidra, then test the native client and separate Game/Voice playback on hardware.
+next: Locate the Devices::AstroA50 class's own EQ-read function (its vtable sibling of 0x4800a0, which traced to the AstroA20 class instead); then test the native client and separate Game/Voice playback on hardware.
 updated: 2026-10-24
 ---
 
@@ -30,7 +30,8 @@ and [[docs/HARDWARE-TESTS]] for physical tests. All progress is local to
 - [x] Deliver `tools/a50.py`: inventory, passive listener, offline preset decoding and selftest.
 - [x] Review malformed packet handling, sequence fields, preset validation, and disconnect handling.
 - [x] Parse all five preserved factory presets successfully in runnable checks.
-- [ ] Map remaining opcodes, request/reply semantics, settings bounds and initialization.
+- [x] Trace the request/reply/sequence-correlation mechanism and confirm it live against hardware (docs/FINDINGS.md §14).
+- [ ] Map remaining opcodes, settings bounds and initialization; locate `AstroA50`'s own EQ-read function (the one traced belongs to the sibling `AstroA20` class).
 - [ ] Implement and exercise verified identity/status/settings queries on the headset.
 - [ ] Implement verified settings writes and export/import of device settings.
 - [ ] Test independent Game/Voice playback and the physical balance control.
@@ -51,9 +52,21 @@ The decoder rejects malformed/truncated reports and invalid extended markers.
 
 Static analysis identified EQ opcodes `0x63`/`0x64`, three slots with five gains
 and frequencies and three fractional bandwidths; sidetone `0x68` (feature 37);
-and noise gate `0x66` (feature 35). Operating ranges and live replies remain
-unverified. Preserved app state suggests the europa firmware family; no live
-identity query has confirmed it. No firmware action has been performed.
+and noise gate `0x66` (feature 35). Preserved app state suggests the europa
+firmware family; no live identity query has confirmed it. No firmware action
+has been performed.
+
+**New this pass:** the full send/wait/reply-correlation mechanism is traced
+(docs/FINDINGS.md §14) and confirmed live against Ben's connected A50 —
+`tools/a50.py eq-read` sends the decompiled request and the device replies
+with correctly-sequenced, correctly-framed, legible structured responses.
+That proves the wire protocol (framing/sequence/status-byte/error-layout) is
+right. It also revealed that the specific opcode traced (`0x63` via
+`0x4800a0`) belongs to the binary's `Devices::AstroA20` class, not `AstroA50`
+— a genuinely separate class exists in the binary and likely has its own,
+not-yet-located sibling function. No setting was changed; every live request
+was the proven read-only shape and the device's own well-formed error
+response is further evidence of that.
 
 The active PipeWire profile exposes one sink. `pro-audio` advertises two sinks
 and two sources, making it a promising routing fix. **It has not been applied
@@ -81,11 +94,13 @@ and LiteLLM should use `nvidia-free-reasoning` or `nvidia-free-fast`.
 The NVIDIA attempt `7311268f-2653-4db5-bf77-337ba8fff0fe` was cancelled before
 edits because its proposed generic query lacked the required evidence.
 **Astra-read-path**, Claude Sonnet, worker ID
-`fd0c34b4-9fd0-4e80-9540-af6ea7e0da49`, is the current continuation. It has
-reopened the correct artifact in Ghidra and reports an exact `{page, slot}` EQ
-read payload plus additional send/wait and reply-validation functions. Evidence
-export, full initialization/reply semantics, implementation and live validation
-are still pending. Collect its Nori `get_worker` result before claiming success.
+`fd0c34b4-9fd0-4e80-9540-af6ea7e0da49`: **completed and committed.** Reopened
+the correct artifact in Ghidra, traced the full send/wait/reply-validation
+chain, implemented `tools/a50.py eq-read`, and ran it live against the
+connected A50. Result is in docs/FINDINGS.md §14 and HANDOFF.md: the wire
+protocol is now confirmed live; the exact opcode traced belongs to the
+sibling `AstroA20` class, not `AstroA50`, which is the concrete, bounded,
+static next step (no further live probing needed to find it).
 
 The first Astra worker completed and committed its investigation. Subsequent
 Claude workers stalled before edits and were cancelled. Gemini failed to create

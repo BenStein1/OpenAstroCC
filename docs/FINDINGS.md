@@ -472,7 +472,153 @@ open-source support for it to cite or build on. Recorded as a bounded negative
 result from a brief search, not an exhaustive survey — worth a second look before
 anyone writes a setter from scratch.
 
-## 13. Evidence IDs
+## 14. Transport/reply-matching trace, and a live device test
+
+This closes the handoff's open item #1 and #3: the exact read request, reply
+correlation, and a real round trip against Ben's connected A50. [STATIC] +
+[HW]. Worker: Astra-read-path. Date: 2026-10-24.
+
+### 14.1 The send/wait/verify chain beneath the EQ reader
+
+`FUN_004800a0` builds the `{page, slot}` payload with `FUN_004794f0` (§4), then
+calls two more functions not previously decompiled, found by reading the
+assembly at each call site to recover the implicit `this`/ECX bindings the
+pseudocode drops:
+
+- **`FUN_00412700`** (`0x412700`) — trivial accessor, `return *(this+4)`. Called
+  with `ECX` = the device object; returns a pointer stored at device-object
+  offset `+4`, a transport/dispatch interface. `ev_2a37b8acd0804d7e7c3f723bda0d491e6b86d2f2ac338b879b9fd43d7935853d`
+- **`FUN_00493fd0`** (`0x493fd0`) — called with `ECX` = the on-stack packet
+  object built by `FUN_004794f0`. Its assembly (not just pseudocode) shows the
+  real call: `FUN_00494b10(transport, packet_this+4, packet_this, flag=1)`.
+  `ev_a3553ab4fb39afe8f322653d4bdaaaeb71b32e67b4558a6d2df9a2856256c7dc`,
+  `ev_e014d0ed7b0de0c69e3d3e24b951a04f684a8800831303847495f4a775da4383` (assembly)
+- **`FUN_00494b10`** (`0x494b10`) — the real send-and-verify. Calls two virtual
+  methods on the transport object: `vtable[+4](flag, requestBytes)` (**write**,
+  "setReport"; logs `"setReport failed for cmd: 0x%x"` on failure) and
+  `vtable[+8](&buf)` (**read**, "getReport"; blocking, return value replaces
+  the packet object's own bytes — the same buffer that held the request now
+  holds the reply). `ev_74721aefc4587aa1a0e6133ffbbe0029c86528004f2a90c94f52b0be0c757b7c`
+- **`FUN_00479f70`** (`0x479f70`) — a plain memcmp-style byte-range equality
+  check, used elsewhere for comparison, not itself the reply validator (that
+  logic is inline in `FUN_00494b10`). `ev_b4049c7794d6bd2888d55404871378e0d0897ef79c3c354de6cc5729ffcd9dbb`
+
+**`ReadFile` has exactly one resolved call site in this whole EXE** —
+inside `FUN_00404550`, the already-documented write transport (§4) — confirmed
+by `search_procedures` over every analyzed symbol. The blocking read inside
+`vtable[+8]` ("getReport") is therefore implemented by a concrete override
+outside this binary (a vendor HID backend DLL not included in the preserved
+tree), so **no timeout value is traceable from this EXE**. This is an honest
+static limit, not a guess. `ev_30787ba051a762175edd8ac722ebe6175dea3840e8dad2158164971497531b16`
+
+### 14.2 The actual reply-validation rule (previously undocumented)
+
+Inside `FUN_00494b10`, after the blocking read returns the reply into `pcVar8`
+(the headerless application packet — same byte layout as the request, see §4):
+
+```c
+if (iVar7 + local_51 < 0x40) { /* "small size of response for cmd: 0x%x" */ }
+if (local_51 != 0) response.append('\0');           // pad to 0x40 on some read paths
+if (((request[1] ^ pcVar8[1]) & 0xc0) == 0) {        // 2-bit SEQUENCE must match
+    if (pcVar8[0] == 2) { success = true; }           // STATUS byte == 0x02
+    else {                                             // otherwise: structured error
+        code    = *(int32_t *)(pcVar8 + 2);            // LE uint32 at payload+2
+        message = (char *)(pcVar8 + 6);                // NUL-terminated ASCII
+        qCritical("invalid response for cmd: 0x%x, response = %d, code = %d, string = %s");
+    }
+} else {
+    qCritical("invalid 'seq' in response for cmd: 0x%x"); success = false;
+}
+```
+
+This is the exact mechanism the handoff asked to establish:
+
+- **Reply correlation = sequence only.** The top two bits of the reply's
+  `len|seq` byte must equal the top two bits of the just-sent request's
+  `len|seq` byte. The opcode is **not** echoed back and is never checked.
+- **Status byte, not echoed opcode.** A successful reply's first content byte
+  (wire offset 1, payload offset −2) is the fixed value `0x02` — a generic
+  success marker, the same for every command. Any other value marks an
+  **error packet**: 4-byte little-endian error code at payload offset 2,
+  NUL-terminated ASCII message at payload offset 4 (wire offset 6 onward).
+  Payload data for a successful read starts at offset 2, exactly as §5 already
+  established independently — now doubly confirmed with the correct reason
+  why (it's a status code, not a cmd echo).
+- A hardcoded special case retries as success when `code == 0x1000001` and the
+  *request* opcode was `0xF3` or `0xF9` (signed `-0xd`/`-7`). Unrelated to the
+  `0x60–0x7C` EQ/settings opcode block (those two are elsewhere, high-bit
+  opcodes outside this family); noted, not pursued further.
+
+### 14.3 Live test against Ben's connected A50 — mechanics proven, model identified as wrong device class
+
+`tools/a50.py eq-read` was implemented exactly per 14.1/14.2 (opcode `0x63`
+only, `{page,slot}` payload, sequence + status validation per above — no
+generic opcode argument exists in the CLI) and run against the real, currently
+connected headset (`lsusb`: `Bus 003 Device 018: ID 9886:0015 Astro Gaming
+A50`, `/dev/hidraw9` present and readable). [HW]
+
+Six requests were sent, completing the CLI's already-allowlisted 3 slots × 2
+pages grid (not opcode brute-forcing — the full space the implemented command
+already exposes):
+
+| slot | page | result |
+|---|---|---|
+| 0,1,2 | 0 | **error status `0x01`**, code `13`, message `HID_ERROR_NO_EQ_WITH_THAT_VALUE` |
+| 0,1,2 | 1 | **success status `0x02`**, but payload only 2 bytes: `63 01` (identical for every slot) |
+
+This is a real, validly-framed round trip: the device replied with the
+correct sequence bits echoed, the correct status-byte convention, and —for
+the error case— the exact 4-byte-code-plus-C-string error layout predicted
+from `FUN_00494b10` in 14.2, with a legible, on-topic English message. A wrong
+or garbled packet could not plausibly produce that. **The wire protocol
+(framing, sequence correlation, status/error layout) is now [HW]-confirmed
+correct for this exact device**, not merely inferred from the Windows binary.
+
+What it also proves: **`0x63`/`{page,slot}` as decompiled from `FUN_004800a0`
+is not the right request for Ben's A50's EQ data**, at least not for
+`slot ∈ {0,1,2}`. Root cause, found statically without further live probing:
+
+`FUN_004800a0`'s only resolved caller is `FUN_00477770`
+(`ev_4fae46dfc85eeaca7f905953a4ba07071e868b55e9aa23a4449c1a23ed2f3398`), which
+is the **`Devices::AstroA20`** constructor — not A50. It sets
+`*in_ECX = Devices::AstroA20::vftable`, constructs the string
+`"Astro A20 Wireless"`, and registers PID `0x9886:0x1c` (**not** `0x15`, the
+A50's own PID). `ev_5fe490b9a1f69f18ba43c7b82c6574fc4bd7a7457e494169d9a5c77d23cec7ac`
+
+`search_strings` for `AstroA50` confirms a genuinely separate class hierarchy
+exists in this binary: RTTI type-info strings for `Devices::AstroA50`,
+`AstroA50Mimas`, `AstroA50SubDevice`, `AstroA50EuropaMediator`,
+`AstroA50EuropaHeadset`, `AstroA50EuropaMicrophone`, `AstroA50EuropaStreamMix`,
+and Mimas equivalents of each — directly matching the Europa/Mimas split
+already noted in §6. `ev_e471bf5b9d9a78a518058da4559b527830f76d6111591e8450cf1ebcf97f2f4c`
+
+`procedure_callers` only reports **resolved, statically-visible** call edges
+(an explicit tool limitation); `FUN_004800a0` may still be reached from
+`AstroA50`/`AstroA50EuropaHeadset` through a virtual-dispatch path this pass
+did not resolve, or — more likely given the live result — `AstroA50Europa*`
+has its **own**, structurally similar but not-yet-located startup EQ-read
+function, reached through its own vtable, using the same proven transport but
+a different opcode, slot range, or addressing. **[UNKNOWN]**, and the next
+concrete, bounded step: locate the `AstroA50`/`AstroA50EuropaHeadset` vtable
+and walk its virtual function table for a sibling of `0x4800a0`, rather than
+probing more live slot/page/opcode combinations on real hardware.
+
+The `page=1` result (`63 01`, identical across all three slots, with a
+*successful* status byte) is recorded as a raw, faithful observation only —
+it is not interpreted further here. **[UNKNOWN]** what it means; resist the
+temptation to read "echoes the opcode" into it, since §14.2 already
+establishes the status-byte position does not normally carry an echoed
+opcode. It may be a fixed-shape reply for a different, unrelated meaning of
+`page=1` under this specific (AstroA20-flavored) opcode, consistent with 14.3's
+conclusion that this opcode is not the correct EQ data path for this device.
+
+**No setting was changed.** Every request sent was the proven-read-only
+`0x63`/`{page,slot}` shape; the device's own structured, well-formed error
+response is further evidence of this (a real mutation path would not be
+expected to answer a malformed-for-it read with a clean, documented error
+string).
+
+## 15. Evidence IDs
 
 Ghidra 12.1.4, target SHA-256 `991e5581…2eb2dcf`, analysis profile digest
 `4f6212bfe31448a7b96743a449e91c35890105cedd34e1d9951e9467d284e0a5`.
@@ -493,6 +639,16 @@ Ghidra 12.1.4, target SHA-256 `991e5581…2eb2dcf`, analysis profile digest
 | `ev_e66b83a4044c1f3058c7a4e6c58e6cb9beb53a0d0d2b5eed359c524242d34619` | callers of `WriteFile` |
 | `ev_6fc669734c53314e0b0d361e82a9abe145a5e06d6f2cdafa45888bf3f5025ba9` | containing procedure `0x480129` |
 | `ev_579de45820396d1b0dbff1e595d72aaf1e82df9a43f02e7b3dfeab133634d9f1` | containing procedure `0x481c8f` |
+| `ev_483ef37a583f05012d2ab91045e83acebef53f914b99bf3cdb20317f66678012` | assembly `0x4800a0` (register/ECX bindings) |
+| `ev_2a37b8acd0804d7e7c3f723bda0d491e6b86d2f2ac338b879b9fd43d7935853d` | pseudocode `0x412700` transport accessor |
+| `ev_a3553ab4fb39afe8f322653d4bdaaaeb71b32e67b4558a6d2df9a2856256c7dc` | pseudocode `0x493fd0` wait/verify wrapper |
+| `ev_e014d0ed7b0de0c69e3d3e24b951a04f684a8800831303847495f4a775da4383` | assembly `0x493fd0` (real call to `FUN_00494b10`) |
+| `ev_74721aefc4587aa1a0e6133ffbbe0029c86528004f2a90c94f52b0be0c757b7c` | pseudocode `0x494b10` send/verify, reply validation |
+| `ev_b4049c7794d6bd2888d55404871378e0d0897ef79c3c354de6cc5729ffcd9dbb` | pseudocode `0x479f70` byte-range compare |
+| `ev_30787ba051a762175edd8ac722ebe6175dea3840e8dad2158164971497531b16` | search_procedures `ReadFile` (single import, zero call sites) |
+| `ev_4fae46dfc85eeaca7f905953a4ba07071e868b55e9aa23a4449c1a23ed2f3398` | callers of `0x4800a0` |
+| `ev_5fe490b9a1f69f18ba43c7b82c6574fc4bd7a7457e494169d9a5c77d23cec7ac` | pseudocode `0x477770` AstroA20 constructor |
+| `ev_e471bf5b9d9a78a518058da4559b527830f76d6111591e8450cf1ebcf97f2f4c` | search_strings `AstroA50` (RTTI class names) |
 
 Ghidra's own stated limits apply: only decompiler output, only Ghidra-defined
 strings, and an empty search does not prove text is absent. Pseudocode is not

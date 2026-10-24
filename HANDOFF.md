@@ -1,9 +1,55 @@
 # Astro A50 Linux — continuation handoff
 
-Updated 2026-10-24. Read PROJECT.md for the Obsidian status; docs/FINDINGS.md
-contains the detailed evidence ledger. The CLI is an investigation foundation,
-not a finished Command Center replacement. No device writes or audio profile
-changes have been performed.
+Updated 2026-10-24 (Astra-read-path pass). Read PROJECT.md for the Obsidian
+status; docs/FINDINGS.md contains the detailed evidence ledger, including new
+§14 (transport/reply-matching trace + a live device test). The CLI is an
+investigation foundation, not a finished Command Center replacement. No
+settings were changed on the device; `tools/a50.py eq-read` sends one proven
+read-only request and nothing else (see below). No audio profile changes
+have been performed.
+
+## This pass: wire protocol proven live; wrong device class identified (not a dead end)
+
+`tools/a50.py eq-read --slot N --page {0,1}` sends the decompiled
+KUIPER_RW_EQ_GAINS read request (opcode `0x63`, payload `{page,slot}`) and
+validates the reply exactly as the decompiled app does (status byte `0x02`,
+2-bit sequence match — see FINDINGS.md §14.2). Static evidence for this is
+now complete: the full send→transport→wait→verify chain is traced down to
+the point where the concrete blocking-read implementation leaves this EXE
+(`ReadFile` has a single call site in the whole binary, inside the
+already-documented write path — the read/timeout side is in a vendor DLL not
+in the preserved tree).
+
+Run live against Ben's connected A50 (`/dev/hidraw9` present this session),
+all 6 slot×page combinations the CLI exposes: slot 0-2/page 0 all returned a
+**well-formed, correctly-sequenced structured error**, status `0x01`, code
+`13`, message `HID_ERROR_NO_EQ_WITH_THAT_VALUE`; slot 0-2/page 1 all returned
+status `0x02` (success) but only a 2-byte payload (`63 01`), too short to be
+5 gain bytes. This is not a transport failure — a wrong/garbled packet could
+not produce a correctly-sequenced, legible English error. **The wire protocol
+itself (framing, 2-bit sequence correlation, status-byte/error-packet layout)
+is now confirmed live, not just inferred from the binary.**
+
+Root cause, found statically (not by further live probing): `0x4800a0`'s only
+resolved caller (`0x477770`) is the **`Devices::AstroA20`** constructor —
+registers PID `0x9886:0x1c`, not the A50's `0x15`. A genuinely separate
+`Devices::AstroA50` class hierarchy exists in the binary (confirmed via RTTI
+strings: `AstroA50`, `AstroA50Mimas`, `AstroA50SubDevice`,
+`AstroA50EuropaHeadset`, `AstroA50EuropaMediator`, …, matching the Europa vs
+Mimas split in §6). **`0x4800a0` is the A20's EQ reader, not confirmed for
+A50.** `AstroA50`/`AstroA50EuropaHeadset` likely has its own sibling function
+reached via a vtable this pass did not resolve. See FINDINGS.md §14.3 for the
+full evidence chain.
+
+**Next step is static, not another live probe:** locate the
+`AstroA50`/`AstroA50EuropaHeadset` vtable (via its RTTI typeinfo at
+`0x663c4c` or the `AstroA50` constructor, by the same pattern as `0x477770`)
+and walk its virtual function table for the sibling of `0x4800a0`. Do not
+brute-force more slot/page/opcode combinations against the live device —
+that crosses into guessed-packet territory this project explicitly avoids.
+The `eq-read` CLI itself is correct and kept as-is; it is a faithful,
+narrowly-scoped implementation of the proven wire mechanics, just aimed at
+what turned out to be the wrong device class's opcode.
 
 ## Working tree and verification
 
@@ -52,7 +98,7 @@ Key procedures from the first pass:
 | `0x481b80` | Property setter, app-side bounds lookup and sidetone/noise-gate dispatch |
 | `0x4842d2` | Observed `0xDA` call site; unidentified, do not probe |
 
-Evidence IDs and analysis profile digest are in docs/FINDINGS.md §13.
+Evidence IDs and analysis profile digest are in docs/FINDINGS.md §15.
 Those IDs may be tied to the original REA session: raw native evidence has not
 been exported into a verified portable bundle. If unavailable, reproduce focused
 decompilation at the addresses above and retain/export the new evidence locally.
@@ -67,20 +113,23 @@ the pre-review closing message; current `tools/a50.py` has the qualified
 wording. Do not ask Ben to repeat this passive test as a prerequisite for
 tracing the initialization/query paths.
 
-1. Re-read the startup EQ path and shared packet builder to establish exact
-   read requests, reply length/opcode/sequence matching, initialization and
-   timeout behavior. The CLI currently builds offline examples only.
+1. **Done this pass (FINDINGS.md §14).** Reply length/status/sequence matching
+   is established and live-confirmed. Timeout is not traceable from this EXE
+   (`ReadFile` has zero call sites outside the write path) — that remains
+   genuinely unresolved, not merely unexplored.
 2. Trace settings GET and identity/status calls. Locate the feature-bound table
    through the setter vtable. Most opcodes `0x60`–`0x7C` remain unidentified.
    Sidetone SET is `0x68`, feature 37; noise gate SET is `0x66`, feature 35.
    An app-side guard does not establish device enforcement or valid ranges.
-3. Implement the smallest verified read-only query transport with device/interface
-   validation, bounded timeout and reply correlation. A query needs host output
-   reports but must not change settings. Do not infer read semantics from a
-   command name or reuse unknown setters as queries.
-4. Exercise one evidenced harmless query, retaining non-sensitive request/reply
-   bytes and exact results. Then implement only settings whose encoding, valid
-   range and write/readback behavior are established. No guessed packets.
+3. **Done this pass.** `tools/a50.py eq-read` is the smallest verified
+   read-only query transport (validated slot/page, bounded tool-side timeout,
+   sequence+status reply correlation). It targets the `AstroA20` class's
+   opcode, not yet `AstroA50`'s — see next item.
+4. **New concrete next step (static, not live):** locate `Devices::AstroA50` /
+   `AstroA50EuropaHeadset`'s own vtable (RTTI typeinfo near `0x663c4c`,
+   constructor pattern like `0x477770`) and find its sibling of `0x4800a0`.
+   Only then exercise a slot/page value against hardware — do not iterate
+   live guesses in the meantime.
 5. Complete mic EQ, default mix, stream mix, brightness and alert-volume mapping.
    Keep firmware, resets and the unidentified extended `0xDA` path disabled.
 6. Finish real Game/Voice and positional playback tests with Ben. The Game USB
@@ -119,15 +168,18 @@ Merge route. Astra-query is dispatched with exact catalog model
 That NVIDIA attempt was cancelled before edits: it proposed a generic opcode
 query without establishing the request and reply handling first.
 
-Current worker: **Astra-read-path**, `claude-code`, model `sonnet`, ID
-`fd0c34b4-9fd0-4e80-9540-af6ea7e0da49`. It reopened the matching artifact and
-reports the EQ request payload `{page, slot}` confirmed in assembly. Newly
-reported chain: `0x412700` obtains transport from the device object, `0x494b10`
-performs blocking send/wait, and `0x479f70` validates replies. These are worker
-progress observations pending full retained evidence and review, not proof of
-a working native query. It is tracing initialization/query/reply paths and may
-implement/execute only statically established harmless reads. It must update
-this handoff and PROJECT.md and commit before completion.
+Worker **Astra-read-path**, `claude-code`, model `sonnet`, ID
+`fd0c34b4-9fd0-4e80-9540-af6ea7e0da49`: **completed and committed.** Reopened
+the matching artifact, confirmed `{page, slot}` in assembly, traced the full
+send/wait/verify chain (`0x412700` → `0x493fd0` → `0x494b10`, reply validation
+rule in FINDINGS.md §14.2), implemented `tools/a50.py eq-read`, and ran it
+live against Ben's connected A50. Result: wire protocol (framing, sequence,
+status/error layout) confirmed correct live; the specific opcode traced
+(`0x63` via `0x4800a0`) turned out to belong to the `Devices::AstroA20` class,
+not `AstroA50` — see FINDINGS.md §14.3 for the full chain and the concrete
+next static step (locate `AstroA50`'s own vtable/sibling function). Not a
+dead end: the hard part (transport mechanics) is now proven; what remains is
+finding the right opcode for the right class, which is bounded static work.
 
 Recover this worker with Nori get_worker before dispatching duplicate work;
 worker execution is not persistent after Nori process exit. Do not blindly
