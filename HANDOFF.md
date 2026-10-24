@@ -116,9 +116,18 @@ Ben subsequently clarified that Claude still has session capacity; skip Gemini.
 For LiteLLM use `nvidia-free-reasoning` or `nvidia-free-fast`, not the depleted
 Merge route. Astra-query is dispatched with exact catalog model
 `litellm/nvidia-free-reasoning`, ID `7311268f-2653-4db5-bf77-337ba8fff0fe`.
-It is tracing initialization/query/reply paths and may implement/execute only
-statically established harmless read requests. It must update this handoff and
-PROJECT.md and commit before completion. Its dispatch is not proof of results.
+That NVIDIA attempt was cancelled before edits: it proposed a generic opcode
+query without establishing the request and reply handling first.
+
+Current worker: **Astra-read-path**, `claude-code`, model `sonnet`, ID
+`fd0c34b4-9fd0-4e80-9540-af6ea7e0da49`. It reopened the matching artifact and
+reports the EQ request payload `{page, slot}` confirmed in assembly. Newly
+reported chain: `0x412700` obtains transport from the device object, `0x494b10`
+performs blocking send/wait, and `0x479f70` validates replies. These are worker
+progress observations pending full retained evidence and review, not proof of
+a working native query. It is tracing initialization/query/reply paths and may
+implement/execute only statically established harmless reads. It must update
+this handoff and PROJECT.md and commit before completion.
 
 Recover this worker with Nori get_worker before dispatching duplicate work;
 worker execution is not persistent after Nori process exit. Do not blindly

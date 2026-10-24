@@ -78,12 +78,14 @@ node, but does not establish whether queried control/status reads work.
 
 Ben clarified that Claude still has session capacity, Gemini should be skipped,
 and LiteLLM should use `nvidia-free-reasoning` or `nvidia-free-fast`.
-**Astra-query** is now dispatched through Nori with model
-`litellm/nvidia-free-reasoning`, worker ID
-`7311268f-2653-4db5-bf77-337ba8fff0fe`. The task is to trace and implement an
-evidenced read-only query, including initialization/reply matching, and save
-Ghidra evidence. Dispatch is not completion; collect its result with Nori
-`get_worker` before marking any new functionality verified.
+The NVIDIA attempt `7311268f-2653-4db5-bf77-337ba8fff0fe` was cancelled before
+edits because its proposed generic query lacked the required evidence.
+**Astra-read-path**, Claude Sonnet, worker ID
+`fd0c34b4-9fd0-4e80-9540-af6ea7e0da49`, is the current continuation. It has
+reopened the correct artifact in Ghidra and reports an exact `{page, slot}` EQ
+read payload plus additional send/wait and reply-validation functions. Evidence
+export, full initialization/reply semantics, implementation and live validation
+are still pending. Collect its Nori `get_worker` result before claiming success.
 
 The first Astra worker completed and committed its investigation. Subsequent
 Claude workers stalled before edits and were cancelled. Gemini failed to create
