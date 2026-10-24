@@ -1,0 +1,8 @@
+# USB interface string descriptors (sysfs, 2026-10-24T14:37:01-07:00)
+3-5:1.0: class=01 sub=01 interface='Astro A50 Voice'
+3-5:1.1: class=01 sub=02 interface=''
+3-5:1.2: class=01 sub=02 interface=''
+3-5:1.3: class=01 sub=01 interface='Astro A50 Game'
+3-5:1.4: class=01 sub=02 interface=''
+3-5:1.5: class=01 sub=02 interface=''
+3-5:1.6: class=03 sub=00 interface=''

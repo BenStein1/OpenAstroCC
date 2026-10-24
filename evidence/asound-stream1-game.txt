@@ -1,0 +1,29 @@
+Astro Gaming Astro A50 at usb-0000:67:00.0-5, high speed : USB Audio #1
+
+Playback:
+  Status: Stop
+  Interface 4
+    Altset 1
+    Format: S16_LE
+    Channels: 6
+    Endpoint: 0x03 (3 OUT) (ASYNC)
+    Rates: 48000
+    Data packet interval: 1000 us
+    Bits: 16
+    Channel map: FL FR FC LFE RL RR
+    Sync Endpoint: 0x83 (3 IN)
+    Sync EP Interface: 4
+    Sync EP Altset: 1
+    Implicit Feedback Mode: No
+
+Capture:
+  Status: Stop
+  Interface 5
+    Altset 1
+    Format: S16_LE
+    Channels: 2
+    Endpoint: 0x84 (4 IN) (ASYNC)
+    Rates: 48000
+    Data packet interval: 1000 us
+    Bits: 16
+    Channel map: FL FR

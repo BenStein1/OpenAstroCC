@@ -1,0 +1,215 @@
+# Preserved Windows artifact manifest
+# Generated 2026-10-24T14:49:02-07:00 by worker Astra.
+# Source: /mnt/Win_C_980PRO (read-only). Contents live in artifacts/ (git-ignored).
+# This manifest is hashes + metadata only; no proprietary content is committed.
+
+## Trees preserved
+appdata-classic          3.6M     55 files
+appdata-store            232K      6 files
+classic-acc               23M     36 files
+store-acc                 16M     98 files
+
+## Version metadata
+classic ACC build        : 1.0.226  (from AppData Logs 'Software version')
+classic ACC exe          : PE32 x86, 2969600 bytes, mtime 2021-05-05
+store ACC package        : AstroGaming.AstroCommandCenter_1.1.55.0_x64__9cg1kgznx2mv2
+device firmware asset    : merged_europa_000000000000_tm-36791_rm-36154_tr-0,0,42_rr-0,0,42.afw
+device variant codename  : europa   (app model name 'Astro A50 Wireless')
+software line codename   : kuiper   (update.astrogaming.com/kuiper/win)
+
+## SHA-256, full recursive
+d19a8df35ab05a9f6b1653986ea454f9308f9305b80d22d7294af3baba6ce590  artifacts/appdata-classic/Astro A20 Wireless/Astro EQ/ASTRO.astroeq
+5da2890323ce3d7bb0fd05aa998e5128e8571be0338c57462a4eb7ec841cca24  artifacts/appdata-classic/Astro A20 Wireless/Astro EQ/PRO.astroeq
+4793f9cfd1727aa2f58dd21d2c3d73b6fbe287c704bc4a975e78bd60d0d6a62f  artifacts/appdata-classic/Astro A20 Wireless/Astro EQ/STUDIO.astroeq
+a8d230a3bb890696212749dc1a8ded5ce5ea6cf3edc00d6ce366db4c57c2f607  artifacts/appdata-classic/Astro A20 Wireless/Profiles/Astro_A20_Wireless_default_profile.agp
+4d85e0bc052c25e30d83f6fe13618594c8cbb1bccb66d8916c238ba3882e39e3  artifacts/appdata-classic/Astro A50 Wireless (Mimas)/Astro EQ/A50 MOD KIT.astroeq
+6c6a1bd6098e389b978d5751aaf8ca233c12811e5fcf1b05e8edc9085e049264  artifacts/appdata-classic/Astro A50 Wireless (Mimas)/Astro EQ/ASTRO.astroeq
+d1156ecfdeff0f9b199da73b3877cef824bebeb0a73107a3c6df86d45ec0c799  artifacts/appdata-classic/Astro A50 Wireless (Mimas)/Astro EQ/MEDIA.astroeq
+5da2890323ce3d7bb0fd05aa998e5128e8571be0338c57462a4eb7ec841cca24  artifacts/appdata-classic/Astro A50 Wireless (Mimas)/Astro EQ/PRO.astroeq
+e7779509dce27f5a4198271753915af7ab19ef69e8ae36d70ec4a6a7cdb671a2  artifacts/appdata-classic/Astro A50 Wireless (Mimas)/Astro EQ/STUDIO.astroeq
+9b95bf57573bfede771cd463dd2f4488c8ae93a0fad44f62d642d1c4903fc15b  artifacts/appdata-classic/Astro A50 Wireless/Astro EQ/A50 MOD KIT.astroeq
+6c6a1bd6098e389b978d5751aaf8ca233c12811e5fcf1b05e8edc9085e049264  artifacts/appdata-classic/Astro A50 Wireless/Astro EQ/ASTRO.astroeq
+d1156ecfdeff0f9b199da73b3877cef824bebeb0a73107a3c6df86d45ec0c799  artifacts/appdata-classic/Astro A50 Wireless/Astro EQ/MEDIA.astroeq
+5da2890323ce3d7bb0fd05aa998e5128e8571be0338c57462a4eb7ec841cca24  artifacts/appdata-classic/Astro A50 Wireless/Astro EQ/PRO.astroeq
+e7779509dce27f5a4198271753915af7ab19ef69e8ae36d70ec4a6a7cdb671a2  artifacts/appdata-classic/Astro A50 Wireless/Astro EQ/STUDIO.astroeq
+f6b92118366c8c2dc32718657c9eb2ef4e5545ae599774f8faf8be39caedb342  artifacts/appdata-classic/Astro A50 Wireless/FW/merged_europa_000000000000_tm-36791_rm-36154_tr-0,0,42_rr-0,0,42.afw
+41284d782467bcbc483dfee9ea12fc97fe8f38c2e5dfb47aa7162fffe5645d9c  artifacts/appdata-classic/Astro MixAmp Pro TR/Astro EQ/ASTRO.astroeq
+01bb52ce11faf443124bfa29c20f34bb4ce71378a92d1948519a7cb86a6083c0  artifacts/appdata-classic/Astro MixAmp Pro TR/Astro EQ/BALANCED.astroeq
+f4983943e97ad985f4454a1db9f4a21436d7137bc7fa99f918f1de7366fe39c7  artifacts/appdata-classic/Astro MixAmp Pro TR/Astro EQ/NATURAL BASS.astroeq
+75183fac94ca4abe1169a2069773a8359c23d0cb274a8402983e2823b965184c  artifacts/appdata-classic/Astro MixAmp Pro TR/Astro EQ/TOURNAMENT.astroeq
+f4d298382370ed52428694f1617aaf956c8fef7b36f9f763855d41e0cce299fc  artifacts/appdata-classic/Astro MixAmp Pro TR/Profiles/ASTRO_Default_MixAmp_Pro_TR.agp
+2abaa585b7d9908bddb3bf05d8ec252408917d8cf7fcc26fafbfa2c97ab5428e  artifacts/appdata-classic/Logs/2018.09.04-1.log
+227ee5a21e2771ab74a2289b9be7c39d9866a7f1a817d2c93000c0302d0a6c6b  artifacts/appdata-classic/Logs/2018.09.04-2.log
+ae931c9262df05ed425f5e3deffa8450c6cd11d6a0ad07305465a03666522249  artifacts/appdata-classic/Logs/2018.09.04-3.log
+20e59d7a76f0afdf43d8cfd60993c8cb826b90aa378c9a7a7b4445af4b7e2b52  artifacts/appdata-classic/Logs/2018.09.04-4.log
+e7adecb0add28ec095344f00d878d0f2b28f80798310553b5485eb32f18ae84a  artifacts/appdata-classic/Logs/2018.09.04-5.log
+6a388ec7c8b6106ca72666deee197321f71d4c82f2307be81213fcc45f7a4552  artifacts/appdata-classic/Logs/2018.09.06-1.log
+bcb7e1d85eda3b018aabff4bd16b3544efed378529a7afa4c318fba028d14d9a  artifacts/appdata-classic/Logs/2018.09.06-2.log
+01e7f808721acb08d93a0cfb5d1414c162ed2bae7248049f2553e73d5c619608  artifacts/appdata-classic/Logs/2018.09.09-1.log
+5d08bc9220b40cd89e0b72e5766e8eb5ff7c8b032504d96b39a485c1f6a1e6d3  artifacts/appdata-classic/Logs/2018.09.10-1.log
+7b745e1e426bf56a994659f463c993029ca8d99608e9dc61484765f7dea7834e  artifacts/appdata-classic/Logs/2018.09.16-1.log
+bed4bfe4afaab4ff683ccd8d9e5685e90b8b99275d73b4dadc826e534d51f923  artifacts/appdata-classic/Logs/2018.10.03-1.log
+6dd33d9d720aa5d0caca07a4f2604e5dd92488c487651cdb652bff4640dcfce0  artifacts/appdata-classic/Logs/2018.10.05-1.log
+2a68a298b9dff4ff66c0f40577d3efda2bbc3cc86206a455bc59b4df5b5c911f  artifacts/appdata-classic/Logs/2018.10.06-1.log
+94eeb1ecd8afb8d32f3b5e9f014d4a9a00c44c60f049f0c9541d303a580ba04a  artifacts/appdata-classic/Logs/2018.10.08-1.log
+700eae6f378978b7cebf9d2d6923c0968582bdcc6027db93b39f6f181278c3a4  artifacts/appdata-classic/Logs/2020.12.14-1.log
+b258631f9a2dc25a8e0241f876bae35a96b40c26ead7ad191067518e8678d927  artifacts/appdata-classic/Logs/2020.12.14-2.log
+2f83942a081a945b5d500523ec0d7151e38cfe9921cd3a928d554cbdce8b69ac  artifacts/appdata-classic/Logs/2020.12.14-3.log
+513611b1161e594b81c661e883bbecb3f01fa3045fd326895a14c2a845241efe  artifacts/appdata-classic/Logs/2020.12.15-1.log
+737342545ec76b0dc0d6adf834407242427c84575406eaea96ad8e50e378db0b  artifacts/appdata-classic/Logs/2020.12.25-1.log
+ce1028255b34b5e9ae250e3fd0dc060307fe38e5e77a5b8795fa540dd4a753f0  artifacts/appdata-classic/Logs/2021.01.21-1.log
+358f84f384cb8b74c15855a50a33788361257facc3b946b525ddaa4c069917e2  artifacts/appdata-classic/Logs/2021.02.14-1.log
+b8cfb010ece8cd4affd4109bf1cd3a9d11cb85a61710c602461e1b292018752f  artifacts/appdata-classic/Logs/2021.02.27-1.log
+0b979a8816cf0a1db9f96b626c2b0b7d04d140c31e96a6080a6da2f412ae1a96  artifacts/appdata-classic/Logs/2021.02.27-2.log
+382ea729cd03e27b1d3d0cd9abf337abe868264a01940c9132912a2eddbbb3b7  artifacts/appdata-classic/Logs/2021.02.27-3.log
+27b394ad90b47986848ff15277c71d21b2c426baecde181805b5e37acc42a133  artifacts/appdata-classic/Logs/2021.03.06-1.log
+2461a6d382d50e2df5d9bb0de79e80a7edeabbadd1e55214cd56ebc39a112798  artifacts/appdata-classic/Logs/2021.03.11-1.log
+ad71b6609d3af350b7c2e536a2e8c9a07f39d4057d955b9b6909d1e70fd8a9db  artifacts/appdata-classic/Logs/2021.03.14-1.log
+b945c7fcb308603565f8d3e9a7a55edc04244a829ef81982be9899e10d6f6823  artifacts/appdata-classic/Logs/2021.03.20-1.log
+8074eb6bdb9e104b00b12fc2d1dfbe8da292e9ef8b944bb472e413156bf37822  artifacts/appdata-classic/Logs/2021.03.26-1.log
+e1e261d8ce9eba5356f07d6d48feff8df68bb40c08792df8823fb5de5ad4ec6a  artifacts/appdata-classic/Logs/2021.04.24-1.log
+cf4972238065383262dcd85bf19bb91334715b498c0f71a776c0758412341ddd  artifacts/appdata-classic/Logs/2021.07.17-1.log
+60b96e6b3ec90210372cfe16c0cea43fe1c859fa3e718cf0d30b9663c66b3cc5  artifacts/appdata-classic/Logs/2023.11.18-1.log
+d688d824180ed3fb426287ae9c421333fe7c27efb88274842324f53819357a17  artifacts/appdata-classic/Logs/2023.11.18-2.log
+f6b92118366c8c2dc32718657c9eb2ef4e5545ae599774f8faf8be39caedb342  artifacts/appdata-classic/Updates/merged_europa_000000000000_tm-36791_rm-36154_tr-0,0,42_rr-0,0,42.afw
+b3e7518a8b9d8317d5d26602b7129781d5382e249e5d00f89b2b478fcb7a2fa7  artifacts/appdata-classic/Updates/updates.xml
+b751beacbe5f6096b2b95294d37c43f8f9fc7c510182537d7a6d0c1baf1c3a48  artifacts/appdata-store/ASTRO A50 Wireless/A50 MOD KIT.astroeq
+a5871f4d586783a5f0f8ae56f999ae658cd52239bebb725e7f6d3c591a94837e  artifacts/appdata-store/ASTRO A50 Wireless/ASTRO.astroeq
+7ce984e0d4b472895675909e4c198c69e11e13b6b7e7a0623dcb33b1883fee54  artifacts/appdata-store/ASTRO A50 Wireless/MEDIA.astroeq
+124298167d184066b7293cb6f90cb94778c03683f1cc95473cb0c378fb58cbaa  artifacts/appdata-store/ASTRO A50 Wireless/PRO.astroeq
+84e3f0d529ed07c3d34b28f6801da22d34624ff5ceb584f8da7534495725e08d  artifacts/appdata-store/ASTRO A50 Wireless/STUDIO.astroeq
+86bdf63fcfdf502bcdfb2319341b8e31f98f20d8b32a3b797653542101849df5  artifacts/appdata-store/Firmware/europa_200802234400_tm-36791_tr-0,0,42_rm-36154_rr-0,0,42.afw
+991e558129af98765cba4f02b10fa5cc4d537e2b6bb4bd3032ca010832eb2dcf  artifacts/classic-acc/ASTRO Command Center.exe
+b967ade09a9338320e0db4e5da11a2ac396950f0eed689b28bd31686b7baf018  artifacts/classic-acc/Qt5Core.dll
+ab160992f30dc69b97feedd2fcaf7528a56fc98a3f30a166c1076589340ac8be  artifacts/classic-acc/Qt5Gui.dll
+ddc9894e36231d749265155ba02f2d70ec5e006cea34010750b220ce49ce391a  artifacts/classic-acc/Qt5Network.dll
+50d06d42a71101e6fb7589676a67a0d763f39fe66dddf3d036b08aeaaf5dc71e  artifacts/classic-acc/Qt5Svg.dll
+4a12866260ff266eeffe0b4d8eaf27ed064682f00e8907bd53956f446e23c496  artifacts/classic-acc/Qt5Widgets.dll
+398f670ea5dc065e7796346bca1c2ad5d2c01b1325a93e82ef921f5f36769d06  artifacts/classic-acc/Qt5Xml.dll
+d19a8df35ab05a9f6b1653986ea454f9308f9305b80d22d7294af3baba6ce590  artifacts/classic-acc/assets/Astro A20 Wireless/Astro EQ/ASTRO.astroeq
+5da2890323ce3d7bb0fd05aa998e5128e8571be0338c57462a4eb7ec841cca24  artifacts/classic-acc/assets/Astro A20 Wireless/Astro EQ/PRO.astroeq
+4793f9cfd1727aa2f58dd21d2c3d73b6fbe287c704bc4a975e78bd60d0d6a62f  artifacts/classic-acc/assets/Astro A20 Wireless/Astro EQ/STUDIO.astroeq
+a8d230a3bb890696212749dc1a8ded5ce5ea6cf3edc00d6ce366db4c57c2f607  artifacts/classic-acc/assets/Astro A20 Wireless/Astro Profiles/Astro_A20_Wireless_default_profile.agp
+4d85e0bc052c25e30d83f6fe13618594c8cbb1bccb66d8916c238ba3882e39e3  artifacts/classic-acc/assets/Astro A50 Wireless (Mimas)/Astro EQ/A50 MOD KIT.astroeq
+6c6a1bd6098e389b978d5751aaf8ca233c12811e5fcf1b05e8edc9085e049264  artifacts/classic-acc/assets/Astro A50 Wireless (Mimas)/Astro EQ/ASTRO.astroeq
+d1156ecfdeff0f9b199da73b3877cef824bebeb0a73107a3c6df86d45ec0c799  artifacts/classic-acc/assets/Astro A50 Wireless (Mimas)/Astro EQ/MEDIA.astroeq
+5da2890323ce3d7bb0fd05aa998e5128e8571be0338c57462a4eb7ec841cca24  artifacts/classic-acc/assets/Astro A50 Wireless (Mimas)/Astro EQ/PRO.astroeq
+e7779509dce27f5a4198271753915af7ab19ef69e8ae36d70ec4a6a7cdb671a2  artifacts/classic-acc/assets/Astro A50 Wireless (Mimas)/Astro EQ/STUDIO.astroeq
+9b95bf57573bfede771cd463dd2f4488c8ae93a0fad44f62d642d1c4903fc15b  artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ/A50 MOD KIT.astroeq
+6c6a1bd6098e389b978d5751aaf8ca233c12811e5fcf1b05e8edc9085e049264  artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ/ASTRO.astroeq
+d1156ecfdeff0f9b199da73b3877cef824bebeb0a73107a3c6df86d45ec0c799  artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ/MEDIA.astroeq
+5da2890323ce3d7bb0fd05aa998e5128e8571be0338c57462a4eb7ec841cca24  artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ/PRO.astroeq
+e7779509dce27f5a4198271753915af7ab19ef69e8ae36d70ec4a6a7cdb671a2  artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ/STUDIO.astroeq
+41284d782467bcbc483dfee9ea12fc97fe8f38c2e5dfb47aa7162fffe5645d9c  artifacts/classic-acc/assets/Astro MixAmp Pro TR/Astro EQ/ASTRO.astroeq
+01bb52ce11faf443124bfa29c20f34bb4ce71378a92d1948519a7cb86a6083c0  artifacts/classic-acc/assets/Astro MixAmp Pro TR/Astro EQ/BALANCED.astroeq
+f4983943e97ad985f4454a1db9f4a21436d7137bc7fa99f918f1de7366fe39c7  artifacts/classic-acc/assets/Astro MixAmp Pro TR/Astro EQ/NATURAL BASS.astroeq
+75183fac94ca4abe1169a2069773a8359c23d0cb274a8402983e2823b965184c  artifacts/classic-acc/assets/Astro MixAmp Pro TR/Astro EQ/TOURNAMENT.astroeq
+f4d298382370ed52428694f1617aaf956c8fef7b36f9f763855d41e0cce299fc  artifacts/classic-acc/assets/Astro MixAmp Pro TR/Astro Profiles/ASTRO_Default_MixAmp_Pro_TR.agp
+421eac838191d2211ffb36f078ba2175191a0fa47179d68f16ef6fac32953ea4  artifacts/classic-acc/assets/forced_fw/mimas_190705151435_tm-35155_tr-43_rm-34843_rr-43.afw
+5f4d4066e98dc9d47677017aca5731137e73ad41f022db35a8e65ad469fdf2f1  artifacts/classic-acc/libeay32.dll
+aaeb83cba0d29af625a213ac0b389cfcee7b4a8afa658595733ef7d9e6ca83ea  artifacts/classic-acc/libssl32.dll
+6a5af4838e31c4fa4183deba6b2ee4db51d0bede8d5531a3b4bdddeee1e3d131  artifacts/classic-acc/qt.conf
+d9e295d76a5d73c33da67a0326c2bd43b90b7b4e19e03a4637c4a0eab6b3ce04  artifacts/classic-acc/qtplugins/iconengines/qsvgicon.dll
+4862df5f6eb95a35de772d6fc339d6bf611b5f7b197d4edfba3e2bd42f4e8510  artifacts/classic-acc/qtplugins/imageformats/qico.dll
+2a1b19e014563e3b3ccda0025604f94c08427598cc8c534f18b12a3340b27ffc  artifacts/classic-acc/qtplugins/imageformats/qsvg.dll
+2565fe1111bf0ba6b98683030b8da92f77da877d0a981f712184e4ce5018b723  artifacts/classic-acc/qtplugins/platforms/qwindows.dll
+e12aebf9e54c4f34916510dee073fd42da81997f4b89397bd3982519c7088cb6  artifacts/classic-acc/quazip.dll
+aaeb83cba0d29af625a213ac0b389cfcee7b4a8afa658595733ef7d9e6ca83ea  artifacts/classic-acc/ssleay32.dll
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  artifacts/store-acc/05DBE9EA-EF75-43DB-8A03-27898B59D1E9
+31f338ce8f36f9a55a4d183cf4fab2f4e5413426c8b7c89aedaba4500ccdcfb3  artifacts/store-acc/AppxBlockMap.xml
+04f8149b145d878c5a9873983286beed0ecf21556a8fecf28fff38c8fbd89554  artifacts/store-acc/AppxManifest.xml
+5f71ff3d38582a7b59ab5453567341134096b588133e816b957c7c4fed3bf3d4  artifacts/store-acc/AppxMetadata/CodeIntegrity.cat
+85994fa4d597d65127e2c0e2222015d4c4c2d6e6e8ec32bddc717e4e3acba1e5  artifacts/store-acc/AppxSignature.p7x
+f858d5cc9679d5c42931bb9911dbfe75b5375d17af09ad291f8d42bcc4495621  artifacts/store-acc/Assets/AppIcon.altform-unplated_targetsize-16.png
+6d360d52d5eefbfb5f917def0f8e69ecc416f218a5ea7cd5c2c915706c393faf  artifacts/store-acc/Assets/AppIcon.altform-unplated_targetsize-256.png
+8c38e107c40bb097d71a28d5e69786cec4931f9a5e45b4f47e127c487f191cc0  artifacts/store-acc/Assets/AppIcon.altform-unplated_targetsize-48.png
+7812147b707a5b9886937280aef4541033bcffc0fc7d49e447688c369675aa3e  artifacts/store-acc/Assets/AppIcon.scale-200.png
+f858d5cc9679d5c42931bb9911dbfe75b5375d17af09ad291f8d42bcc4495621  artifacts/store-acc/Assets/AppIcon.targetsize-16.png
+6d360d52d5eefbfb5f917def0f8e69ecc416f218a5ea7cd5c2c915706c393faf  artifacts/store-acc/Assets/AppIcon.targetsize-256.png
+8c38e107c40bb097d71a28d5e69786cec4931f9a5e45b4f47e127c487f191cc0  artifacts/store-acc/Assets/AppIcon.targetsize-48.png
+fe1c71dba17e9764282647264c8c2457f8fab291511df75c6e46b83e034bb3af  artifacts/store-acc/Assets/BadgeLogo.scale-200.png
+551fc73581692fd658e167a66bd84fe9efcb0f1bfd5d57c8894bc8bcec611433  artifacts/store-acc/Assets/LargeTile.scale-200.png
+9f04611e3627e4267b510857a83e3a044b37f4f52dcb0b2dfa54be448384db10  artifacts/store-acc/Assets/LockScreenLogo.scale-200.png
+2b064a813ec5c451d3e85093779674fe889ed0952fc4cfe9878297a79f92a01d  artifacts/store-acc/Assets/MediumTile.scale-200.png
+4059bd0b2f293d4ee900d013416c38530b1d157d201edfc9015dffcf0252cd71  artifacts/store-acc/Assets/SmallTile.scale-200.png
+54a10a65fccfc36696c99a064fe7ae2c38ff16fe93b794cf1af0fe0cde6ef7ef  artifacts/store-acc/Assets/SplashScreen.scale-200.png
+3fbedaf1ee8a362270ff959d13ea6cebee0e823e25290b47a63d5d86bcad16d8  artifacts/store-acc/Assets/StoreLogo.scale-200.png
+5fa79f5309d5ffc7463dd926a11404bd782869f36d6fe8b715a1f41a57f417ea  artifacts/store-acc/Assets/WideTile.scale-200.png
+c1a5611dd2c145f6a317f95e6209884566240ae6dd16b9feed4d6df9c0ba4389  artifacts/store-acc/AstroCommandCenter.dll
+e1788cf76022c313af764c520072e3ba91ed8af9104398aec142aaca9e059bcc  artifacts/store-acc/AstroCommandCenter.exe
+d317fe891dbbc7c27b29e54162966d9de749a70797be29564bc1c30c71780b8b  artifacts/store-acc/AstroCommandCenter.xr.xml
+a003daa2b0abe095bd49269aa668a5b0492e11a680879c479181748e9a8d1ee0  artifacts/store-acc/AstroGaming.Xbox.Devices.dll
+b30c14b854e76db2a40196e6b00b54217beb95ad28ff339b26566e3d26766563  artifacts/store-acc/AstroGaming.Xbox.Devices.winmd
+84689b02911b584c9a65e1e67d76ee2ca1e9ab6b4c3d401292d8514cf53d097c  artifacts/store-acc/DFUBackgroundTask.winmd
+eb8d82835feecf3c54058b3e8d5110158e16702e1a427f9c2a34e00e1e700228  artifacts/store-acc/MetroLog.WinRT.winmd
+531201621ab4ff47619819e446ae24134f97fc2320f8c47424c025ce4cf619eb  artifacts/store-acc/ViewModels/aquarius.afw
+8ec8c26fdb914b4f0efdb7707f0420fe90ec854cf3857837ac70969a7218b825  artifacts/store-acc/ViewModels/europa.afw
+896cbe9ff62a4e62a71b4a7ee11ee60ad403d3b5621152a828fafeae5391e696  artifacts/store-acc/ViewModels/ganymede.afw
+9836303664e225e7f4aa7eb45ed7ef54bcc5a3a41a3f32c7121ccebd6db2c9ca  artifacts/store-acc/ViewModels/helios.afw
+7edc079fc8b1f66707191c70f237876d597aa4727eae9175e2a8b353f6e0ea58  artifacts/store-acc/ViewModels/iapetus.afw
+421eac838191d2211ffb36f078ba2175191a0fa47179d68f16ef6fac32953ea4  artifacts/store-acc/ViewModels/mimas.afw
+0d9c4cc97e1f71b7a34332d792f0ace7248347f1da8c3fb5177220f5fa92759a  artifacts/store-acc/Views/Fonts/Geogrotesque-Medium.otf
+de9b3e69f5edceea78107f846ada9366539a43443b16985c6b6bae49436f258b  artifacts/store-acc/Views/Fonts/Geogrotesque-Regular.otf
+18d3c9c6b830fd620561f5798198c3a38bef3457f703bbd3201f98b085aa3376  artifacts/store-acc/Views/Fonts/Geogrotesque-SemiBold.otf
+9fa5282a6cfeb249b9e84a80787e96194447230ce56843c968feea3f929a03ca  artifacts/store-acc/Views/Fonts/NB55AG.otf
+5b68c877ed931a90f6ed2b1615fc7774b04ce73b4f0d38c7b6ae06480fbae04e  artifacts/store-acc/Views/Images/Europa.svg
+e138d7e07d7d4ea0f24bb43f1c7f8420db2efb9cfb92704cf69e10ef4ee0eee2  artifacts/store-acc/Views/Images/Ganymede.svg
+362ea433c50afd2a71e55e74370a8f622401b9c069e9687ee7c02eedebfa6cb3  artifacts/store-acc/Views/Images/Helios.svg
+4837ce82a6205cf20121b3f524442841f50866de071c2d268fe81fce8ba5104b  artifacts/store-acc/Views/Images/Iapetus-linedrawing.svg
+87dbc7e26f8fa75c3fe02be1c69f1721d39aa6a5b2545f311cdd27a35cc1d3c3  artifacts/store-acc/Views/Images/Iapetus/preset-0-selected.png
+7c02119ad6aad9f4c9bc7e39294acce1762a4786a3fef230cf99d750124c0966  artifacts/store-acc/Views/Images/Iapetus/preset-1-selected.png
+4f7d5ce6c31d8fe726f666c6026adba9ad11fc1ae9df2c4e972239023441882a  artifacts/store-acc/Views/Images/Iapetus/preset-2-selected.png
+4cf35edde1de3283ff70bcfd55698ffbe0b442a6c1c7293fb69c9ae253080acf  artifacts/store-acc/Views/Images/Iapetus/preset-3-selected.png
+01d9436c8e18f4286923a381dd21f8cb46793757810e66012d0f731601e66672  artifacts/store-acc/Views/Images/Mimas.svg
+2ef6001ba5b83a56c8549de87c63e909c42e7cf3834719d292b9783f4d1ea21f  artifacts/store-acc/Views/Images/MixAmp/preset-0-default.png
+adfc8671afd79b12620f416d92ba40b61d93b25bc213f0f298ea09f4bb583232  artifacts/store-acc/Views/Images/MixAmp/preset-0-modified.png
+f13c25ea37eb517c0b4d0fb17648506997d3471d1bb211ac39ad84d5db2dce71  artifacts/store-acc/Views/Images/MixAmp/preset-0-selected.png
+c3ef3a7f45e9371b3ff3a99edecd63586f815951f595fc4eb11fffa0ff46aca1  artifacts/store-acc/Views/Images/MixAmp/preset-1-default.png
+6ec347a05333cb57ce09ca86b52b921675b66b5cdda68f2b340fa0fb9b985098  artifacts/store-acc/Views/Images/MixAmp/preset-1-modified.png
+95091dab085b1b167e4d4a0b700132ab63b4d0d94cb8a881512e3dba21b89886  artifacts/store-acc/Views/Images/MixAmp/preset-1-selected.png
+48d113c0854e435a9d345af6d22f12c0513ad9a6959eafaa4787a870c0d68f8b  artifacts/store-acc/Views/Images/MixAmp/preset-2-default.png
+6c586ba7bcdfee19e1589e3395c2e8f50ffe8fb74ef6f4cef1218006b731cf7b  artifacts/store-acc/Views/Images/MixAmp/preset-2-modified.png
+8001e22f17b53d55d43fe7abca58f1fae6b5e4303616950edf80639d222f6ab2  artifacts/store-acc/Views/Images/MixAmp/preset-2-selected.png
+9602a65f697c517b8928d130b7725096350a8afb8a35eabf5d7cc5f6fa2b2ec6  artifacts/store-acc/Views/Images/MixAmp/preset-3-default.png
+6143a1c5e6afeed5d00b3e423c295af2f5a371e5fd3d047a4ce857f09cc0a9e1  artifacts/store-acc/Views/Images/MixAmp/preset-3-modified.png
+aedb6a3e6907447b1b40ca894b988bc16a439fbf7e788bd5939433e5e121d12d  artifacts/store-acc/Views/Images/MixAmp/preset-3-selected.png
+3029af18023540095d2349427aa96299e49fe1bc2d4eca7b6452ccbd6763402f  artifacts/store-acc/Views/Images/MixAmp/preset-inactive.png
+2ea1996a15f0970ce065b10f9ca4ff734fd528ff81b3303659e9e717e46de313  artifacts/store-acc/Views/Images/add-preset-library-selected.png
+6ba2cd6dde457f7607a8155eb5d38bfb126e0b2a0b158562a516d6f0b39e8892  artifacts/store-acc/Views/Images/advan_freq_line_edit_background.png
+3bfd85faccc3ab69b57299bd69c5a5bac909f082157b818837925db57c995ec6  artifacts/store-acc/Views/Images/arrow-big.png
+edc2db883ea54543f95c0938728d8e71859989337ef586de0b4b4863c5d73819  artifacts/store-acc/Views/Images/arrow-medium.png
+95e255c6d52e733a857abbc35330730c6d80de4ad93dd2b8a3d26830b95deca6  artifacts/store-acc/Views/Images/arrow-small.png
+037de1391e1ca8ba219a09fa5dba2a68ec94fa0c8c2cbb583315a8c48e846988  artifacts/store-acc/Views/Images/astro-command-center.png
+0dccf070895b288bd39774fceed65b06d9e1f20ea260a32c79798092579b7213  artifacts/store-acc/Views/Images/checkbox-check.png
+79f1c1173de120a2a14244435b095c5a8392dbbe542354733bd3ad72cdb059b7  artifacts/store-acc/Views/Images/close-button-no-text.png
+c557d75d3ea6ef8b6f0efb0210a5c2d26210532b374151937904e0b84e96ff0f  artifacts/store-acc/Views/Images/close-button-no-text_hover.png
+04ecd740704551007fdee48af00b553b301d941cb440300020bade653075283b  artifacts/store-acc/Views/Images/connecting-background.png
+ea9a6e94693cdb88ac2ffa587bb571805ba542fac9ea239fe185a572ff80680f  artifacts/store-acc/Views/Images/eq-menu-unsaved-changes-preview-left.png
+1559b3298eb989fc85140dbdcfb0a8a2db4a7dee46a6bfaa322b3c0893c704cb  artifacts/store-acc/Views/Images/eq-menu-unsaved-changes-preview-right.png
+f28ced7e448c5743fb2dc8f8bfb7df48b26dac43c1cee341c541072158a2ad84  artifacts/store-acc/Views/Images/firmware-update-icon.png
+a3722350deab23a884524c8d70a2f25619176c406ecb6599623bfdcdf4a700c8  artifacts/store-acc/Views/Images/folder-preset-library-selected.png
+bc2b05d55dbb96bf82caa1f3c9ddc46c545a302feef59b76bc82f4054555e7f8  artifacts/store-acc/Views/Images/headset-to-base-station-1.png
+330778e728efb84a69fdb432896fe33ee57926fceb9a33fe7aa23247fe61f62a  artifacts/store-acc/Views/Images/headset-to-base-station-2.png
+546dcfd94f019828849caca5052492d69ed74a0a90c58990742a8d461494d97b  artifacts/store-acc/Views/Images/headset-to-base-station-3.png
+2075646d7b97ff2a5c4b6d4a44cd6d21bcd38ff7dbd4cc11cf6628d61ea5a099  artifacts/store-acc/Views/Images/headset-to-transmitter.png
+95c1fda6fd12d333ee09c6ccc31887f1b2a50f9b5578cb68246a38f0897ce8e5  artifacts/store-acc/Views/Images/line_edit_background.png
+256dbd132746ce26441b4b2b641e41aa7c850acfe437f7e131212a6c6ea0f92b  artifacts/store-acc/Views/Images/loading.png
+cf52907afa7b7842088dca96ea85d1fd7a9008e844eb4be8f11d819f09153a9e  artifacts/store-acc/Views/Images/preset-0-selected.png
+e738ad17f96a31686dc5aae427c548eb31e8056aa85102a7a8fafc35dd9e696e  artifacts/store-acc/Views/Images/preset-1-selected.png
+efed4fc84ce6f98c6e59e1c4117c03d009334fd99c423fcb11937e2c9a79b9b2  artifacts/store-acc/Views/Images/preset-2-selected.png
+6f3e14ba352eb241a30f1c35d154b019b583a955d34ed2f88f3bcdb6e9f3ae0e  artifacts/store-acc/Views/Images/settings-button-no-text_hover.png
+f73074bb79942c66c69cba5d2b9f5bd61c77938bf6ee9d242be381391716a6c1  artifacts/store-acc/Views/Images/settings-button.png
+6fcbbe52a2ed53b1e78bd6cf417ce5c52715a740c61d044295b5b1a07b788bee  artifacts/store-acc/Views/Images/up_marker_black.png
+13939295400509f76a367a1fbaf59e42ea731d28199732ec46e798ed0124d347  artifacts/store-acc/Views/Images/up_marker_orange.png
+acbe3ee14323d5b23583560881335185763c5f0ac5b2bed911146369fbdcf644  artifacts/store-acc/Views/Images/warning-icon.png
+4fcd8c266f4cb57389340e35fdc73b10590460072fcebbc74adfb791a45e1735  artifacts/store-acc/Views/Views.xr.xml
+a927486406c7812730f9d7bf04038228aa6f84d857bce78f02da50c5665596e2  artifacts/store-acc/_Resources/0.rsrc
+2098abd9af4c0c1d5cedeb32b013c97afd8864549902c0ddfd251f2b93f0f481  artifacts/store-acc/_Resources/1.rsrc
+80c00051a175b68038ac63b6dd3fbcba70fd47861c45df155370a8fe503cdbb7  artifacts/store-acc/_Resources/2.rsrc
+9865f3693199e0d6665e8871216e5b225faae66e8821f6672b877e6ce35c33f0  artifacts/store-acc/_Resources/3.rsrc
+1865c33d891e43f0f6e6901f268b740094a63a9c4d853be1ef2804207b7165c1  artifacts/store-acc/_Resources/4.rsrc
+025a2c6fec0c81191d36a28741158c98b7f77c619cf57ecde70248b9b14c9ae3  artifacts/store-acc/_Resources/index.txt
+2650be72a7a2d05d38bf47ae54d92777fd235520d81f29f8d6255e17ee34faf5  artifacts/store-acc/clrcompression.dll
+182ec5197180363506f17b6c04e58e4221ab1ec7448a7eee3732da6ce0f5be06  artifacts/store-acc/microsoft.system.package.metadata/S-1-5-21-103348473-1699391333-372929814-1001-MergedResources-0.pri
+182ec5197180363506f17b6c04e58e4221ab1ec7448a7eee3732da6ce0f5be06  artifacts/store-acc/microsoft.system.package.metadata/resources.0b245258.pri
+cbb3a9c52fb757c6e7916b3cad32fd70a5b9d3016454f11fda2b864d780bb983  artifacts/store-acc/resources.pri

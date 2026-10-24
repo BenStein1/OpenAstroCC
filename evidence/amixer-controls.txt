@@ -1,0 +1,4 @@
+numid=1,iface=PCM,name='Capture Channel Map'
+numid=2,iface=PCM,name='Playback Channel Map'
+numid=4,iface=PCM,name='Capture Channel Map',device=1
+numid=3,iface=PCM,name='Playback Channel Map',device=1
