@@ -1,34 +1,39 @@
 #!/usr/bin/env python3
 """Astro A50 Gen 3 (USB 9886:0015) — read-only inventory, passive HID listener,
-offline .astroeq decoding, and offline-only EQ-read protocol diagnostics.
+offline .astroeq decoding, and a model-bound EQ gains read.
 
-`eq-read` is DISABLED for live transmission (docs/FINDINGS.md §14.3/§16). Its
-opcode 0x63/{page,slot} request was traced to FUN_004800a0, whose only
-resolved caller constructs Devices::AstroA20 (PID 0x9886:0x1c), not AstroA50
-(PID 0x9886:0x15). The live round trip against Ben's real A50 confirmed the
-wire transport (framing/sequence/status) but got a wrong-class response, not
-an A50 EQ read. Do not re-enable this command until an AstroA50-bound opcode
-is traced and proven (see FINDINGS.md §14.3 for the exact next static step).
-The offline frame()/unframe() helpers and captured results are retained.
-The unverified live transmit helper has been removed.
+`eq-read` sends opcode **0x69** (one-byte slot payload), the request bound to
+the actual `Devices::AstroA50`/Europa constructor and vtable path, per
+docs/A50-PROTOCOL.md. This supersedes the earlier opcode 0x63/{page,slot}
+request, which docs/FINDINGS.md §14.3 traced to `Devices::AstroA20`
+(PID 0x9886:0x1c) instead -- that command remains removed, not revived.
 
 Subcommands:
   inventory   identify the device and its audio topology from sysfs/procfs
   listen      passively read HID input reports and decode their framing
   eq          decode a .astroeq preset into the device's on-wire representation
-  eq-read     DISABLED -- explains why and refuses to transmit; see above
+  eq-read     read EQ gain bytes for one slot (opcode 0x69); see docs/A50-PROTOCOL.md
   selftest    assert the decoders behave (no hardware needed)
 """
 
 import configparser
+import fcntl
 import glob
 import math
 import os
+import select
+import struct
 import sys
+import time
 
 VID, PID = 0x9886, 0x0015
 HID_ID = "0003:%08X:%08X" % (VID, PID)
 REPORT_ID = 0x02
+
+# HIDIOCGRAWINFO (linux/hidraw.h): struct hidraw_devinfo { u32 bustype;
+# u16 vendor; u16 product; }, fetched with ioctl _IOR('H', 0x03, len=8).
+HIDIOCGRAWINFO = 0x80084803
+BUS_USB = 0x03
 
 # The HID report descriptor declares 63 data bytes, so a report is 64 on the
 # wire including the report ID. Two of those data bytes are the command header
@@ -47,6 +52,7 @@ OPCODES = {
     0x64: "RW_EQ_FREQS",
     0x66: "SET_NOISEGATE",
     0x68: "SET_SIDETONE",
+    0x69: "READ_EQ_GAINS",  # AstroA50-bound; docs/A50-PROTOCOL.md
 }
 
 
@@ -283,14 +289,113 @@ def cmd_listen(args):
     return 0
 
 
-def cmd_eq_read(_args):
-    """Refuse transmission until an A50-bound read is established."""
-    print("eq-read is disabled: opcode 0x63/{page,slot} is the AstroA20 "
-          "class's request, not validated as an EQ read for "
-          "this A50 (docs/FINDINGS.md §14.3). No A50-bound read opcode has "
-          "been traced yet; see HANDOFF.md for the next static step.",
-          file=sys.stderr)
-    return 1
+class EqReadError(Exception):
+    """A reply failed validation; the caller must report it, not guess past it."""
+
+
+def decode_eq_reply(status, payload, slot):
+    """Validate a 0x69 reply and return its two 5-byte gain banks.
+
+    Per docs/A50-PROTOCOL.md: success status is 0x02, payload must echo
+    `69 <slot>`, and carry at least 12 bytes (echo 2 + gains 10); each gain
+    byte is unsigned-minus-12. Any other status is a structured error:
+    LE uint32 code followed by a NUL-terminated ASCII message
+    (docs/FINDINGS.md §14.2, pcVar8+2/pcVar8+6 translated to this unframe()
+    payload's offset 0/4).
+    """
+    if status != 0x02:
+        code = int.from_bytes(payload[0:4], "little") if len(payload) >= 4 else None
+        message = (payload[4:].split(b"\x00", 1)[0].decode("ascii", "replace")
+                   if len(payload) > 4 else "")
+        raise EqReadError("device error: status=0x%02x code=%r message=%r"
+                           % (status, code, message))
+    if len(payload) < 12:
+        raise EqReadError("short success payload: %d bytes (need >= 12)" % len(payload))
+    if payload[0:2] != bytes([0x69, slot]):
+        raise EqReadError("echo mismatch: got %s, expected 69 %02x"
+                           % (payload[0:2].hex(" "), slot))
+    bank_a = [b - 12 for b in payload[2:7]]
+    bank_b = [b - 12 for b in payload[7:12]]
+    return bank_a, bank_b
+
+
+def _read_reply(fd, seq, deadline):
+    """Block (bounded by `deadline`) for a reply matching our sequence.
+
+    Discards reports with the wrong sequence or a shape unframe() rejects --
+    a bounded drain, never a retry of our own request. Returns the raw
+    64-byte report, or None on timeout/EOF/I/O error.
+    """
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        ready, _, _ = select.select([fd], [], [], remaining)
+        if not ready:
+            return None
+        try:
+            data = os.read(fd, REPORT_LEN)
+        except OSError:
+            return None
+        if not data:
+            return None
+        decoded = unframe(data)
+        if decoded is not None and decoded[1] == seq:
+            return data
+
+
+def cmd_eq_read(args):
+    """Read EQ gain bytes for one slot via the model-bound opcode 0x69.
+
+    docs/A50-PROTOCOL.md binds this request to the actual AstroA50/Europa
+    constructor and vtable path, superseding the earlier A20-derived 0x63
+    request. No page or raw-opcode argument exists here by design.
+    """
+    slot = args.slot
+    path = args.device or find_hidraw()
+    if not path:
+        print("A50 control interface not found.", file=sys.stderr)
+        return 1
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_NONBLOCK)
+    except OSError as exc:
+        print("cannot open %s: %s" % (path, exc), file=sys.stderr)
+        return 1
+    try:
+        bustype, vendor, product = struct.unpack(
+            "<IHH", fcntl.ioctl(fd, HIDIOCGRAWINFO, b"\x00" * 8))
+        if (bustype, vendor, product) != (BUS_USB, VID, PID):
+            print("refusing to write: opened device is bus=%d %04x:%04x, "
+                  "expected bus=%d %04x:%04x"
+                  % (bustype, vendor, product, BUS_USB, VID, PID), file=sys.stderr)
+            return 1
+        seq = 0
+        request = frame(0x69, bytes([slot]), seq=seq)
+        print("tx: %s" % request.hex(" "))
+        written = os.write(fd, request)
+        if written != REPORT_LEN:
+            print("short write: %d/%d bytes; aborting" % (written, REPORT_LEN),
+                  file=sys.stderr)
+            return 1
+        raw_reply = _read_reply(fd, seq, time.monotonic() + 2.0)
+        if raw_reply is None:
+            print("no matching reply within 2s timeout", file=sys.stderr)
+            return 1
+        print("rx: %s" % raw_reply.hex(" "))
+        status, _, payload = unframe(raw_reply)
+        try:
+            bank_a, bank_b = decode_eq_reply(status, payload, slot)
+        except EqReadError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        print("slot %d bank A (raw-12): %s" % (slot, bank_a))
+        print("slot %d bank B (raw-12): %s" % (slot, bank_b))
+        return 0
+    except OSError as exc:
+        print("HID I/O failed: %s" % exc, file=sys.stderr)
+        return 1
+    finally:
+        os.close(fd)
 
 
 def cmd_eq(args):
@@ -393,14 +498,100 @@ def cmd_selftest(_args):
         else:
             raise AssertionError("invalid preset accepted: %r" % change)
 
+    # eq-read request shape: opcode 0x69, one-byte slot, per docs/A50-PROTOCOL.md.
+    req = frame(0x69, bytes([1]))
+    assert req[:4] == bytes([0x02, 0x69, 0x01, 0x01]), req[:4].hex(" ")
+    assert req[4:] == b"\x00" * 60
+
+    # decode_eq_reply: signed-offset (unsigned byte minus 12) bank decode.
+    payload = (bytes([0x69, 2])
+               + bytes((g + 12) & 0xFF for g in (1, -1, 0, 2, -2))
+               + bytes((g + 12) & 0xFF for g in (3, -3, 4, -4, 5)))
+    bank_a, bank_b = decode_eq_reply(0x02, payload, 2)
+    assert bank_a == [1, -1, 0, 2, -2], bank_a
+    assert bank_b == [3, -3, 4, -4, 5], bank_b
+
+    # Echo mismatch (wrong slot echoed back) must be rejected.
+    try:
+        decode_eq_reply(0x02, bytes([0x69, 3]) + bytes(10), 1)
+    except EqReadError:
+        pass
+    else:
+        raise AssertionError("echo mismatch must be rejected")
+
+    # Short success payload (< 12 bytes: echo 2 + gains 10) must be rejected.
+    try:
+        decode_eq_reply(0x02, bytes([0x69, 1]) + bytes(5), 1)
+    except EqReadError:
+        pass
+    else:
+        raise AssertionError("short payload must be rejected")
+
+    # Error status decodes the LE uint32 code and NUL-terminated ASCII message.
+    err_payload = (13).to_bytes(4, "little") + b"HID_ERROR_NO_EQ_WITH_THAT_VALUE\x00"
+    try:
+        decode_eq_reply(0x01, err_payload, 1)
+    except EqReadError as exc:
+        assert "13" in str(exc) and "HID_ERROR_NO_EQ_WITH_THAT_VALUE" in str(exc), exc
+    else:
+        raise AssertionError("error status must raise")
+
     # A vanished device must return failure and close its fd, never busy-loop.
     import contextlib
     import io
     from types import SimpleNamespace
     from unittest.mock import patch
+
+    # Wrong VID/PID on the opened fd must reject BEFORE any os.write.
     with contextlib.redirect_stderr(io.StringIO()), \
-            patch.object(os, "open", side_effect=AssertionError("disabled command opened HID")):
-        assert cmd_eq_read(SimpleNamespace()) == 1
+            patch.object(os, "open", return_value=99), \
+            patch.object(fcntl, "ioctl",
+                         return_value=struct.pack("<IHH", BUS_USB, 0x1234, 0x5678)), \
+            patch.object(os, "write", side_effect=AssertionError("wrote despite wrong identity")), \
+            patch.object(os, "close") as close_mock:
+        assert cmd_eq_read(SimpleNamespace(device="/mock-hid", slot=1)) == 1
+        close_mock.assert_called_once_with(99)
+
+    # A short write must abort before any read, and still close the fd.
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()), \
+            patch.object(os, "open", return_value=99), \
+            patch.object(fcntl, "ioctl",
+                         return_value=struct.pack("<IHH", BUS_USB, VID, PID)), \
+            patch.object(os, "write", return_value=REPORT_LEN - 1), \
+            patch.object(os, "read", side_effect=AssertionError("read after short write")), \
+            patch.object(os, "close") as close_mock:
+        assert cmd_eq_read(SimpleNamespace(device="/mock-hid", slot=1)) == 1
+        close_mock.assert_called_once_with(99)
+
+    # No ready report within the bound must time out and close the fd.
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()), \
+            patch.object(os, "open", return_value=99), \
+            patch.object(fcntl, "ioctl",
+                         return_value=struct.pack("<IHH", BUS_USB, VID, PID)), \
+            patch.object(os, "write", return_value=REPORT_LEN), \
+            patch.object(select, "select", return_value=([], [], [])), \
+            patch.object(os, "close") as close_mock:
+        assert cmd_eq_read(SimpleNamespace(device="/mock-hid", slot=1)) == 1
+        close_mock.assert_called_once_with(99)
+
+    # A stray reply with the wrong sequence must be skipped, not accepted;
+    # the next, matching reply must still be read and decoded successfully.
+    wrong_seq = (bytes([0x02, 0x02, 12 | (1 << 6)]) + bytes([0x69, 1])
+                 + bytes([12] * 10)).ljust(REPORT_LEN, b"\x00")
+    matching = (bytes([0x02, 0x02, 12]) + bytes([0x69, 1])
+                + bytes([12] * 10)).ljust(REPORT_LEN, b"\x00")
+    with contextlib.redirect_stdout(io.StringIO()) as out, \
+            patch.object(os, "open", return_value=99), \
+            patch.object(fcntl, "ioctl",
+                         return_value=struct.pack("<IHH", BUS_USB, VID, PID)), \
+            patch.object(os, "write", return_value=REPORT_LEN), \
+            patch.object(select, "select", return_value=([99], [], [])), \
+            patch.object(os, "read", side_effect=[wrong_seq, matching]), \
+            patch.object(os, "close") as close_mock:
+        assert cmd_eq_read(SimpleNamespace(device="/mock-hid", slot=1)) == 0
+        close_mock.assert_called_once_with(99)
+    assert "bank A (raw-12): [0, 0, 0, 0, 0]" in out.getvalue()
+
     for read_result in ({"return_value": b""}, {"side_effect": OSError("disconnected")}):
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()), \
                 patch.object(os, "open", return_value=99), \
@@ -447,8 +638,10 @@ def main():
     eq = sub.add_parser("eq", help="decode a .astroeq preset")
     eq.add_argument("path")
     eqread = sub.add_parser(
-        "eq-read",
-        help="DISABLED -- traced opcode is AstroA20's, not AstroA50's; see docs/FINDINGS.md 14.3")
+        "eq-read", help="read EQ gain bytes for one slot (opcode 0x69, A50-bound)")
+    eqread.add_argument("-d", "--device", help="hidraw path (default: autodetect)")
+    eqread.add_argument("--slot", type=int, choices=(1, 2, 3), default=1,
+                         help="EQ slot to read (default: 1)")
     sub.add_parser("selftest", help="run offline assertions")
     args = parser.parse_args()
     return {"inventory": cmd_inventory, "listen": cmd_listen, "eq": cmd_eq,

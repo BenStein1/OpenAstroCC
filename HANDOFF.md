@@ -1,9 +1,33 @@
 # Astro A50 Linux — continuation handoff
 
-Updated 2026-10-24. Start with PROJECT.md and docs/FINDINGS.md §14.
+Updated 2026-10-24. Start with PROJECT.md and docs/A50-PROTOCOL.md (the
+current, A50-bound protocol note); docs/FINDINGS.md §14 is the superseded
+A20 history, kept for the record, not as current guidance.
 This remains an investigation utility, not working Command Center support.
 
-## Current correction and live results
+## Current result: live A50-bound EQ read succeeded
+
+docs/A50-PROTOCOL.md records a static Ghidra trace binding `(0x9886, 0x15)`
+to `Devices::AstroA50::vftable` (model name `Astro A50 Wireless`) through
+`0x483640`/`0x419b00`/`0x4821a0`, and its headset-init path's EQ read:
+shared builder `0x4794f0`, opcode **`0x69`**, one-byte slot (1–3).
+
+`tools/a50.py eq-read --slot {1,2,3}` now sends exactly that request (no
+page/raw-opcode argument), validates the opened fd's USB identity via
+`HIDIOCGRAWINFO` before writing, checks the full 64-byte write, and bounds
+the reply wait with `O_NONBLOCK` + `select` + `time.monotonic` (2s). It was
+run live, once, against Ben's connected A50 (slot 1):
+
+- TX: `02 69 01 01` + 60 zero bytes.
+- RX: status `0x02` (success), sequence matched, payload `69 01 02 00 00 00
+  00 08 0a 09 13 13` (12 bytes) — echoes opcode+slot correctly.
+- Decoded (unsigned byte − 12 per bank): bank A `[-10, -12, -12, -12, -12]`,
+  bank B `[-4, -2, -3, 7, 7]`. Bank semantics are *not* claimed.
+
+Full TX/RX hex and the decode are in `evidence/a50-eq-read-slot1.json`.
+This is the first verified A50-class read in this project's history.
+
+## Superseded: the earlier A20-derived correction and live results
 
 The previous pass traced `0x4800a0` to a resolved caller at `0x477770`, whose
 constructor identifies `Devices::AstroA20`, PID `0x1c`. That does not bind the
@@ -29,27 +53,21 @@ No audio profile change, firmware action, or reset has been performed.
 
 ## Active work and next concrete target
 
-Ben says Claude still has session capacity. Skip Gemini. LiteLLM must use
-`nvidia-free-reasoning` or `nvidia-free-fast`; the paid Merge route is depleted.
-The NVIDIA reasoning attempt `7311268f-2653-4db5-bf77-337ba8fff0fe` was cancelled
-before edits because it proposed insufficiently evidenced generic queries.
-Claude Sonnet `e2820188-e77a-4dd5-8c01-ba0b9e5b665a` disabled the live command
-and began correcting FINDINGS, then stalled and was cancelled. The supervisor
-is preserving/reviewing those corrections. Do not resume its old live probe.
+**Done:** the A50 class binding (above) and the live `0x69` read. That closes
+out the "bind `9886:0015` to `Devices::AstroA50`" step this section used to
+describe as open.
 
 Read-only worker **Astra-vtables**, `0d283f16-df8a-439b-b22b-6ec6cddc844f`,
-is dispatched with `litellm/nvidia-free-fast` to locate the actual A50
-constructor, VID/PID registration and vtables. Collect its Nori get_worker
-result before launching duplicate work. It is not authorized to edit files
-or access hardware. Dispatch/running status is not proof of results.
+was dispatched in parallel for the same class-binding lookup; it is
+read-only (no file edits, no hardware access) so it cannot conflict with the
+`tools/a50.py` changes here, but collect its Nori `get_worker` result and
+reconcile before treating its findings as new.
 
-Next: bind the `9886:0015` registration to `Devices::AstroA50` and its Europa
-subdevices; start from RTTI string/typeinfo reported near `0x663c4c` but verify
-the address and reference types. Resolve a class-specific harmless read before
-implementation. Preserve exact decompilation and evidence references locally.
-An eventual query transport must verify opened HID identity/interface before
-writing, check a full64-byte write, use bounded timeout/status/sequence checks,
-and expose only an allowlisted model-specific read. No guessed packets.
+Next concrete step: docs/A50-PROTOCOL.md notes the same initializer also
+issues opcode `0x70` with slot 1–3 and band 1–5 to read coefficients. Trace
+that request's exact payload shape the same way `0x69` was traced, and don't
+infer a write layout from either read. Map the remaining `0x60`–`0x7C`
+opcodes the same bounded, static-first way.
 
 ## Working tree and verification
 
@@ -63,19 +81,24 @@ python3 tools/a50.py listen
 ```
 
 The selftest checks framing/capacity, all four sequence values, malformed and
-truncated input, invalid preset values, bandwidth encoding and all five preserved
-factory presets. Inventory is read-only. Listen blocks until reports or Ctrl-C;
-no unsolicited reports arrived during the initial 12-second idle capture.
-EOF/disconnect now exits visibly. Silence is not proof that querying is impossible.
-The review also exercises EOF and read-error handling with mocked I/O, and
-corrects half-tenth rounding to match the app's positive roundf behavior.
+truncated input, invalid preset values, bandwidth encoding, all five preserved
+factory presets, and (new) the `0x69` request byte shape, signed-offset bank
+decode, echo/status/short-payload rejection, wrong-VID/PID-rejects-before-write,
+short-write-aborts, and timeout-closes-fd for `eq-read` — all with mocked I/O,
+no hardware needed. Inventory is read-only. Listen blocks until reports or
+Ctrl-C; no unsolicited reports arrived during the initial 12-second idle
+capture. EOF/disconnect now exits visibly. Silence is not proof that querying
+is impossible.
 
-Final supervisor checks: selftest passed including all five presets; read-only
-inventory confirmed the USB/audio topology via sysfs/procfs; diff --check passed.
-The supervisor sandbox has no `/dev/hidraw9` despite the sysfs entry, so its
-listener attempt exited cleanly with ENOENT. This is an environment-access limit,
-not evidence that the physical headset disappeared. The initial passive capture was later followed by the six diagnostic request/
-reply exchanges described above; no successful A50 settings read was decoded.
+Final supervisor checks (prior pass): selftest passed including all five
+presets; read-only inventory confirmed the USB/audio topology via
+sysfs/procfs; diff --check passed. The supervisor sandbox has no
+`/dev/hidraw9` despite the sysfs entry, so its listener attempt exited
+cleanly with ENOENT — an environment-access limit, not evidence the physical
+headset disappeared. That pass's six diagnostic request/reply exchanges (A20-
+derived, see "Superseded" above) did not decode an A50 settings read; this
+pass's `0x69` read, run against the real connected A50, did — see "Current
+result" above.
 
 ## Preserved analysis target
 
@@ -94,9 +117,12 @@ Key procedures from the first pass:
 | `0x4078f0` | Report serializer: ID 2, body copied after it, padded |
 | `0x404550` | Windows overlapped WriteFile transport |
 | `0x4794f0` | Shared command packet builder; 2-bit sequence |
-| `0x4800a0` | EQ reader reached by resolved A20 constructor; A50 binding unverified |
+| `0x4800a0` | EQ reader reached by resolved A20 constructor; **superseded, not A50** |
 | `0x481b80` | Property setter, app-side bounds lookup and sidetone/noise-gate dispatch |
 | `0x4842d2` | Observed `0xDA` call site; unidentified, do not probe |
+| `0x41ae40`/`0x483640`/`0x419b00`/`0x4821a0` | A50 registration chain: registry pairs runtime-ID list with factory, factory constructs `(0x9886,0x15)` and calls the ctor that assigns `Devices::AstroA50::vftable` |
+| `0x485fd0` | A50 headset init; logs "initializing headset", loops 3 slots, calls `0x4794f0` with opcode `0x69` — the traced EQ-gains read |
+| `0x490620`/`0x479f70` | Generic send/wait wrapper and its reply-shape comparison (declared length vs. app packet offset 2) used by the `0x69` read |
 
 Evidence IDs and analysis profile digest are in docs/FINDINGS.md §15.
 Those IDs may be tied to the original REA session: raw native evidence has not
@@ -121,15 +147,16 @@ tracing the initialization/query paths.
    through the setter vtable. Most opcodes `0x60`–`0x7C` remain unidentified.
    Sidetone SET is `0x68`, feature 37; noise gate SET is `0x66`, feature 35.
    An app-side guard does not establish device enforcement or valid ranges.
-3. **Done this pass.** `tools/a50.py eq-read` is the smallest verified
-   read-only query transport (validated slot/page, bounded tool-side timeout,
-   sequence+status reply correlation). It targets the `AstroA20` class's
-   opcode, not yet `AstroA50`'s — see next item.
-4. **New concrete next step (static, not live):** locate `Devices::AstroA50` /
-   `AstroA50EuropaHeadset`'s own vtable (RTTI typeinfo near `0x663c4c`,
-   constructor pattern like `0x477770`) and find its sibling of `0x4800a0`.
-   Only then exercise a slot/page value against hardware — do not iterate
-   live guesses in the meantime.
+3. **Superseded.** The original `tools/a50.py eq-read` targeted `AstroA20`'s
+   opcode (`0x63`), not `AstroA50`'s; it was disabled, then replaced.
+4. **Done this pass.** Located `Devices::AstroA50::vftable` and its
+   registration chain in Ghidra (docs/A50-PROTOCOL.md), found its headset-init
+   EQ read (opcode `0x69`, slot 1–3), implemented it in `tools/a50.py eq-read`,
+   and ran it live against Ben's A50 (slot 1) — success, see "Current result"
+   above. **New concrete next step:** the same initializer also issues opcode
+   `0x70` with slot 1–3 and band 1–5 for coefficients — trace that request's
+   exact shape before implementing it; don't infer a write layout from either
+   read.
 5. Complete mic EQ, default mix, stream mix, brightness and alert-volume mapping.
    Keep firmware, resets and the unidentified extended `0xDA` path disabled.
 6. Finish real Game/Voice and positional playback tests with Ben. The Game USB
@@ -186,3 +213,18 @@ worker execution is not persistent after Nori process exit. Do not blindly
 redispatch to the failed routes or modify billing/client configuration as part
 of this headset task. Continue from this repository using an available worker.
 Codex workers are retired per the shared user instructions; do not dispatch one.
+
+Worker **Astra-native-read** (Claude): **completed and committed.** Used the
+root-supplied docs/A50-PROTOCOL.md (static A50 model binding and the opcode
+`0x69` request/response layout, already traced in Ghidra — no repeat
+RE/search needed) to replace the disabled `eq-read` with the real request.
+Validated the opened hidraw fd's identity via `HIDIOCGRAWINFO` before
+writing, bounded the reply wait with `O_NONBLOCK`+`select`, decoded the
+error-packet layout (LE uint32 code + ASCII message) from FINDINGS.md §14.2,
+added offline selftest coverage for all of that (request shape, bank decode,
+echo/status/short-payload rejection, wrong-identity-rejects-before-write,
+short-write-abort, timeout-close), then ran exactly one live read (slot 1)
+against Ben's connected A50 — success (see "Current result" above). Did not
+touch the parallel read-only worker `0d283f16-df8a-439b-b22b-6ec6cddc844f`'s
+scope. Remaining gap: the `0x70`/{slot,band} coefficient read is traced in
+the doc but not yet implemented or exercised.

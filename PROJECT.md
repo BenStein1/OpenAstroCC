@@ -2,7 +2,7 @@
 name: Astro A50 Linux
 status: active
 summary: Native Linux support for the Astro A50 Gen 3 headset, including Command Center settings and separate Game and Voice audio paths.
-next: Locate the Devices::AstroA50 class's own EQ-read function (its vtable sibling of 0x4800a0, which traced to the AstroA20 class instead); then test the native client and separate Game/Voice playback on hardware.
+next: Trace the sibling 0x70/{slot,band} coefficient read (docs/A50-PROTOCOL.md) and the remaining opcode space; then test the native client and separate Game/Voice playback on hardware.
 updated: 2026-10-24
 ---
 
@@ -31,7 +31,8 @@ and [[docs/HARDWARE-TESTS]] for physical tests. All progress is local to
 - [x] Review malformed packet handling, sequence fields, preset validation, and disconnect handling.
 - [x] Parse all five preserved factory presets successfully in runnable checks.
 - [x] Trace the request/reply/sequence-correlation mechanism and confirm it live against hardware (docs/FINDINGS.md §14).
-- [ ] Map remaining opcodes, settings bounds and initialization; locate `AstroA50`'s own EQ-read function (the one traced belongs to the sibling `AstroA20` class).
+- [x] Bind the A50's own model/vtable in Ghidra and implement+exercise its real EQ-gains read, opcode `0x69` (docs/A50-PROTOCOL.md; live result in `evidence/a50-eq-read-slot1.json`). The earlier `0x63` request is confirmed A20-bound and stays removed.
+- [ ] Map remaining opcodes and settings bounds; trace the sibling `0x70`/{slot,band} coefficient read noted in docs/A50-PROTOCOL.md.
 - [ ] Implement and exercise verified identity/status/settings queries on the headset.
 - [ ] Implement verified settings writes and export/import of device settings.
 - [ ] Test independent Game/Voice playback and the physical balance control.
@@ -50,16 +51,23 @@ The HID interface uses report ID `2` and a 63-byte data area. Static framing is
 header bytes leave **61 payload bytes**, or **60** with the extended marker.
 The decoder rejects malformed/truncated reports and invalid extended markers.
 
-The earlier EQ opcodes `0x63`/`0x64`, sidetone `0x68` and noise gate `0x66`
-were not bound to the A50 registration. The EQ reader's resolved constructor
-is **A20**, PID `0x1c`; applicability to A50 is unverified. The preset INI
-schema remains observed shipped data, but is not proof of a live A50 protocol.
+**Superseded:** the earlier EQ opcodes `0x63`/`0x64`, sidetone `0x68` and noise
+gate `0x66` were not bound to the A50 registration. The EQ reader's resolved
+constructor was **A20**, PID `0x1c`. That diagnostic exchange returned
+structured errors for page0 and two-byte success-marked replies for page1 —
+real transport confirmation, but not a decoded A50 EQ read, and it stays
+removed from `tools/a50.py`.
 
-The live diagnostic exchange returned structured errors for page0 and two-byte
-success-marked replies for page1, not decoded EQ values. These support shared
-transport framing/status/sequence behavior. **`eq-read` is disabled and its live transmit helper removed** pending
-an A50-bound read path. There were no intentional settings writes; unchanged
-device settings were not verified by a before/after readback.
+**Current:** static Ghidra analysis bound the actual A50 registration —
+`(0x9886, 0x15)` constructed via `0x483640`/`0x419b00`/`0x4821a0`, which
+assigns `Devices::AstroA50::vftable` and the model name `Astro A50 Wireless`
+(docs/A50-PROTOCOL.md). Its headset-init path calls the shared builder with
+opcode `0x69` and slot 1–3 to read EQ parameters. `tools/a50.py eq-read` now
+sends exactly that request and was run live against Ben's connected A50
+(slot 1): status `0x02`, matching sequence, echo `69 01`, 12-byte payload,
+decoded into two 5-byte banks (unsigned byte − 12). Full TX/RX hex in
+`evidence/a50-eq-read-slot1.json`. Bank A/B semantics are not yet claimed.
+There were no intentional settings writes.
 
 The active PipeWire profile exposes one sink. `pro-audio` advertises two sinks
 and two sources, making it a promising routing fix. **It has not been applied
@@ -82,16 +90,13 @@ node, but does not establish whether queried control/status reads work.
 
 ## Continuation status
 
-Ben says Claude has session capacity; skip Gemini. Use `nvidia-free-reasoning`
-or `nvidia-free-fast` for LiteLLM, not the depleted paid Merge model.
-The first Sonnet read-path pass completed at `3ad761d`. The second Sonnet pass
-stalled after disabling `eq-read` and correcting findings; it was cancelled.
-The supervisor reviewed and preserved those changes.
-
-Read-only worker **Astra-vtables**, `litellm/nvidia-free-fast`,
-`0d283f16-df8a-439b-b22b-6ec6cddc844f`, is looking for actual A50 registration
-and vtable addresses. Retrieve its result before claiming new findings.
-See [[HANDOFF]] for previous worker IDs and exact next investigation.
+Worker **Astra-native-read** (Claude) bound the A50 model in Ghidra, replaced
+the disabled `eq-read` with the real opcode-`0x69` request, and ran the single
+authorized live read (slot 1) against Ben's connected A50 — success, see
+above. Read-only worker **Astra-vtables**,
+`0d283f16-df8a-439b-b22b-6ec6cddc844f`, was dispatched in parallel for the
+same class-binding lookup; collect its result before re-running that search.
+See [[HANDOFF]] for prior worker history.
 
 ## Boundaries
 

@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-24",
+  "device": {
+    "vid": "0x9886",
+    "pid": "0x0015",
+    "bus": "USB (3)",
+    "hidraw": "/dev/hidraw9"
+  },
+  "command": "python3 tools/a50.py eq-read --slot 1",
+  "request": {
+    "opcode": "0x69",
+    "slot": 1,
+    "seq": 0,
+    "tx_hex": "02 69 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+  },
+  "response": {
+    "rx_hex": "02 02 0c 69 01 02 00 00 00 00 08 0a 09 13 13 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+    "status": "0x02 (success)",
+    "seq_matched": true,
+    "payload_len": 12,
+    "echo": "69 01 (opcode+slot)",
+    "bank_a_raw_minus_12": [
+      -10,
+      -12,
+      -12,
+      -12,
+      -12
+    ],
+    "bank_b_raw_minus_12": [
+      -4,
+      -2,
+      -3,
+      7,
+      7
+    ]
+  },
+  "notes": "First live exercise of the A50-model-bound opcode 0x69 read (docs/A50-PROTOCOL.md). Bank A/B are the two 5-byte groups per the doc; their semantics (e.g. which is gains vs. some other pair) are intentionally not claimed here. Single read only, slot 1, as authorized -- no other slots or opcodes probed."
+}
