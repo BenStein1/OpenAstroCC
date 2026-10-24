@@ -5,6 +5,11 @@ current, A50-bound protocol note); docs/FINDINGS.md §14 is the superseded
 A20 history, kept for the record, not as current guidance.
 This remains an investigation utility, not working Command Center support.
 
+**Latest scope:** Ben now wants full documented Gen 3 feature support and
+explicitly permits Codex workers. Current worker IDs and action boundaries are
+in docs/WORKERS.md and the project AGENTS.md. Treat older Codex-retired and
+no-active-workers statements below as historical, superseded by that note.
+
 ## Current result: live A50-bound EQ read succeeded
 
 docs/A50-PROTOCOL.md records a static Ghidra trace binding `(0x9886, 0x15)`
@@ -232,3 +237,10 @@ against Ben's connected A50 — success (see "Current result" above). Did not
 touch the parallel read-only worker `0d283f16-df8a-439b-b22b-6ec6cddc844f`'s
 scope. Remaining gap: the `0x70`/{slot,band} coefficient read is traced in
 the doc but not yet implemented or exercised.
+
+## Astra-complete milestone: acceptance ledger
+
+`docs/FEATURES.md` now tracks every requested feature separately across evidence,
+native GET/SET, UI and real verification. Full support remains incomplete.
+The worktree started clean. EQ/coefficient and mediator analysis is active;
+complementary mic/stream analysis is supervisor-owned. Audio approval is pending.

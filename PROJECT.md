@@ -90,6 +90,12 @@ node, but does not establish whether queried control/status reads work.
 
 ## Continuation status
 
+**Full-feature continuation is active:** see [[docs/WORKERS]] for the current
+Codex implementation worker and NVIDIA microphone/stream-mix analysis worker.
+Ben explicitly authorized Codex workers and requested all documented features.
+The completed checkpoint below is prior history; follow docs/FEATURES.md as
+the implementation and verification matrix as it is created.
+
 The supervisor bound the A50 model in Ghidra and exported its evidence.
 Worker **Astra-native-read** (Claude) implemented the protocol note, replaced
 the disabled `eq-read` with the real opcode-`0x69` request, and ran the single
@@ -97,8 +103,8 @@ authorized live read (slot 1) against Ben's connected A50 — success, see
 above. Read-only worker **Astra-vtables**,
 `0d283f16-df8a-439b-b22b-6ec6cddc844f`, was dispatched in parallel for the
 same class-binding lookup and reproduced the constructor/vtables. It was
-stopped after the exact PID15 binding and live read were verified. No workers
-remain active. The private REA snapshot and raw dossiers are recorded in
+stopped after the exact PID15 binding and live read were verified. That earlier
+worker group is inactive. The private REA snapshot and raw dossiers are recorded in
 [[HANDOFF]] for continuation without this conversation.
 See [[HANDOFF]] for prior worker history.
 
@@ -109,3 +115,10 @@ Preserve Windows sources. No firmware flashing, resets, brute-force commands,
 or guessed writes. Preserve actual hardware mixing and onboard sidetone.
 Keep static findings, inferences and hardware-tested behavior distinct.
 Full headset feature support is **not yet delivered**.
+
+## Astra-complete milestone: acceptance ledger
+
+`docs/FEATURES.md` now tracks every requested feature separately across evidence,
+native GET/SET, UI and real verification. Full support remains incomplete.
+The worktree started clean. EQ/coefficient and mediator analysis is active;
+complementary mic/stream analysis is supervisor-owned. Audio approval is pending.
