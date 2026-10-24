@@ -20,6 +20,7 @@ import configparser
 import fcntl
 import glob
 import math
+import json
 import os
 import select
 import struct
@@ -344,6 +345,163 @@ def _read_reply(fd, seq, deadline):
             return data
 
 
+class A50Client:
+    """Only statically bound A50 operations; one exclusive fd per transaction group."""
+
+    def __init__(self, device=None):
+        self.path = device or find_hidraw()
+        self.fd = None
+        self.seq = 0
+        self.capture = []
+
+    def __enter__(self):
+        if not self.path:
+            raise EqReadError("A50 control interface not found")
+        self.fd = os.open(self.path, os.O_RDWR | os.O_NONBLOCK)
+        try:
+            identity = struct.unpack("<IHH", fcntl.ioctl(self.fd, HIDIOCGRAWINFO, bytes(8)))
+            if identity != (BUS_USB, VID, PID):
+                raise EqReadError("refusing device identity %r; expected USB 9886:0015" % (identity,))
+            fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except Exception:
+            os.close(self.fd)
+            self.fd = None
+            raise
+        return self
+
+    def __exit__(self, *_exc):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+
+    def _exchange(self, opcode, payload=b"", echo=b"", minimum=0):
+        # Private allowlist, never exposed as a CLI or UI raw-command feature.
+        if opcode not in (0x69, 0x70, 0x77, 0x79, 0x7a, 0x72, 0x63, 0x6f, 0x73, 0x75, 0x76):
+            raise ValueError("operation is not enabled")
+        if self.fd is None:
+            raise EqReadError("client is not open")
+        seq = self.seq
+        self.seq = (seq + 1) % 4
+        request = frame(opcode, payload, seq)
+        written = os.write(self.fd, request)
+        if written != REPORT_LEN:
+            raise EqReadError("short write: %d/%d bytes" % (written, REPORT_LEN))
+        raw = _read_reply(self.fd, seq, time.monotonic() + 2)
+        self.capture.append({"tx": request.hex(" "), "rx": raw.hex(" ") if raw else None})
+        if raw is None:
+            raise EqReadError("no matching reply within 2s (timeout or disconnected)")
+        status, _, data = unframe(raw)
+        if status != 2:
+            code = int.from_bytes(data[:4], "little") if len(data) >= 4 else None
+            message = data[4:].split(bytes(1), 1)[0].decode("ascii", "replace")
+            raise EqReadError("device error: status=%02x code=%r message=%r" % (status, code, message))
+        if len(data) < minimum:
+            raise EqReadError("short success payload: %d bytes (need >= %d)" % (len(data), minimum))
+        if not data.startswith(echo):
+            raise EqReadError("echo mismatch: %s, expected %s" % (data.hex(" "), echo.hex(" ")))
+        return data
+
+    @staticmethod
+    def _slot(slot):
+        if type(slot) is not int or slot not in (1, 2, 3):
+            raise ValueError("slot must be 1, 2 or 3")
+
+    def gains(self, slot):
+        self._slot(slot)
+        data = self._exchange(0x69, bytes([slot]), bytes([0x69, slot]), 12)
+        a, b = decode_eq_reply(2, data, slot)
+        return {"working": a, "stored": b}
+
+    def coefficients(self, slot, band):
+        self._slot(slot)
+        if type(band) is not int or band not in range(1, 6):
+            raise ValueError("band must be 1 through 5")
+        data = self._exchange(0x70, bytes([slot, band]), bytes([0x70, slot, band]), 11)
+        wa, wb, fa, fb = struct.unpack_from("<4H", data, 3)
+        return {"working": {"frequency": fa, "bandwidth_raw": wa},
+                "stored": {"frequency": fb, "bandwidth_raw": wb}}
+
+    def settings(self):
+        # These GETs do not echo the opcode; init reads directly at app offset 2.
+        balance = self._exchange(0x77, minimum=1)[0]
+        brightness = list(self._exchange(0x79, minimum=9)[:9])
+        tone = self._exchange(0x7a, minimum=1)[0]
+        return {"default_balance": balance, "brightness_channels": brightness,
+                "alert_volume": tone}
+
+    def status(self):
+        data = self._exchange(0x72, bytes([1]), minimum=16)
+        # Mediator init: battery low 7 bits and charging high bit of app byte 16.
+        return {"raw": data[:16].hex(), "battery": data[14] & 127,
+                "charging": bool(data[14] & 128), "status_byte": data[10]}
+
+    def set_gains(self, slot, gains):
+        self._slot(slot)
+        if len(gains) != 5 or any(type(g) is not int or not -12 <= g <= 12 for g in gains):
+            raise ValueError("five integer gains in -12..12 dB required")
+        self._exchange(0x63, bytes([slot] + [g + 12 for g in gains]), bytes([0x63, slot]), 2)
+        if self.gains(slot)["working"] != gains:
+            raise EqReadError("EQ gains readback differs from requested values")
+
+    def set_coefficients(self, slot, band, frequency, bandwidth_raw):
+        self._slot(slot)
+        if type(band) is not int or band not in range(1, 6):
+            raise ValueError("band must be 1 through 5")
+        if type(frequency) is not int or not 80 <= frequency <= 15000:
+            raise ValueError("frequency must be an integer in 80..15000 Hz")
+        # Shelf bands have no bandwidth control; retain their evidenced zero.
+        if type(bandwidth_raw) is not int or (band in (1, 5) and bandwidth_raw != 0) or (
+                band in (2, 3, 4) and not 409 <= bandwidth_raw <= 12288):
+            raise ValueError("bandwidth must be 0 for shelves, or 0.1..3 octaves in 4.12")
+        payload = bytes([slot, band]) + struct.pack("<HH", bandwidth_raw, frequency)
+        self._exchange(0x6f, payload, bytes([0x6f, slot, band]), 3)
+        expected = {"frequency": frequency, "bandwidth_raw": bandwidth_raw}
+        if self.coefficients(slot, band)["working"] != expected:
+            raise EqReadError("EQ coefficients readback differs from requested values")
+
+    def set_setting(self, name, value):
+        if name == "brightness_channels":
+            if not isinstance(value, list) or len(value) != 9 or any(
+                    type(v) is not int or not 20 <= v <= 70 for v in value):
+                raise ValueError("nine brightness channels in 20..70 required")
+            self._exchange(0x75, bytes(value))
+        else:
+            opcode, maximum = {"default_balance": (0x73, 255), "alert_volume": (0x76, 100)}[name]
+            if type(value) is not int or not 0 <= value <= maximum:
+                raise ValueError("%s must be an integer in 0..%d" % (name, maximum))
+            self._exchange(opcode, bytes([value]), bytes([opcode]), 1)
+        if self.settings()[name] != value:
+            raise EqReadError("%s readback differs from requested value" % name)
+
+    def snapshot(self):
+        slots = []
+        for slot in range(1, 4):
+            slots.append({"slot": slot, "gains": self.gains(slot),
+                          "bands": [self.coefficients(slot, band) for band in range(1, 6)]})
+        return {"schema": "astro-a50-gen3-v1", "vid": VID, "pid": PID,
+                "slots": slots, "settings": self.settings(), "status": self.status()}
+
+
+def cmd_snapshot(args):
+    try:
+        with A50Client(args.device) as client:
+            result = client.snapshot()
+            if args.output:
+                with open(args.output, "x", encoding="utf-8") as fh:
+                    json.dump(result, fh, indent=2)
+                    fh.write("\n")
+            else:
+                print(json.dumps(result, indent=2))
+            if args.capture:
+                with open(args.capture, "x", encoding="utf-8") as fh:
+                    json.dump(client.capture, fh, indent=2)
+                    fh.write("\n")
+        return 0
+    except (OSError, EqReadError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+
 def cmd_eq_read(args):
     """Read EQ gain bytes for one slot via the model-bound opcode 0x69.
 
@@ -631,10 +789,14 @@ def main():
     eqread.add_argument("-d", "--device", help="hidraw path (default: autodetect)")
     eqread.add_argument("--slot", type=int, choices=(1, 2, 3), default=1,
                          help="EQ slot to read (default: 1)")
+    snapshot = sub.add_parser("snapshot", help="read all EQ banks, mediator settings and status")
+    snapshot.add_argument("-d", "--device")
+    snapshot.add_argument("-o", "--output", help="create a new JSON backup file")
+    snapshot.add_argument("--capture", help="create a new TX/RX evidence file")
     sub.add_parser("selftest", help="run offline assertions")
     args = parser.parse_args()
     return {"inventory": cmd_inventory, "listen": cmd_listen, "eq": cmd_eq,
-            "eq-read": cmd_eq_read, "selftest": cmd_selftest}[args.cmd](args)
+            "eq-read": cmd_eq_read, "snapshot": cmd_snapshot, "selftest": cmd_selftest}[args.cmd](args)
 
 
 if __name__ == "__main__":

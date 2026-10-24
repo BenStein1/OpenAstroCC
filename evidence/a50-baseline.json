@@ -1,0 +1,241 @@
+{
+  "schema": "astro-a50-gen3-v1",
+  "vid": 39046,
+  "pid": 21,
+  "slots": [
+    {
+      "slot": 1,
+      "gains": {
+        "working": [
+          -10,
+          -12,
+          -12,
+          -12,
+          -12
+        ],
+        "stored": [
+          -4,
+          -2,
+          -3,
+          7,
+          7
+        ]
+      },
+      "bands": [
+        {
+          "working": {
+            "frequency": 95,
+            "bandwidth_raw": 0
+          },
+          "stored": {
+            "frequency": 95,
+            "bandwidth_raw": 0
+          }
+        },
+        {
+          "working": {
+            "frequency": 419,
+            "bandwidth_raw": 4096
+          },
+          "stored": {
+            "frequency": 419,
+            "bandwidth_raw": 4096
+          }
+        },
+        {
+          "working": {
+            "frequency": 600,
+            "bandwidth_raw": 4096
+          },
+          "stored": {
+            "frequency": 600,
+            "bandwidth_raw": 4096
+          }
+        },
+        {
+          "working": {
+            "frequency": 3499,
+            "bandwidth_raw": 6553
+          },
+          "stored": {
+            "frequency": 3499,
+            "bandwidth_raw": 6553
+          }
+        },
+        {
+          "working": {
+            "frequency": 6100,
+            "bandwidth_raw": 0
+          },
+          "stored": {
+            "frequency": 6100,
+            "bandwidth_raw": 0
+          }
+        }
+      ]
+    },
+    {
+      "slot": 2,
+      "gains": {
+        "working": [
+          5,
+          -2,
+          -1,
+          7,
+          1
+        ],
+        "stored": [
+          5,
+          -2,
+          -1,
+          7,
+          1
+        ]
+      },
+      "bands": [
+        {
+          "working": {
+            "frequency": 95,
+            "bandwidth_raw": 0
+          },
+          "stored": {
+            "frequency": 95,
+            "bandwidth_raw": 0
+          }
+        },
+        {
+          "working": {
+            "frequency": 406,
+            "bandwidth_raw": 8192
+          },
+          "stored": {
+            "frequency": 406,
+            "bandwidth_raw": 8192
+          }
+        },
+        {
+          "working": {
+            "frequency": 783,
+            "bandwidth_raw": 8192
+          },
+          "stored": {
+            "frequency": 783,
+            "bandwidth_raw": 8192
+          }
+        },
+        {
+          "working": {
+            "frequency": 3901,
+            "bandwidth_raw": 2048
+          },
+          "stored": {
+            "frequency": 3901,
+            "bandwidth_raw": 2048
+          }
+        },
+        {
+          "working": {
+            "frequency": 6339,
+            "bandwidth_raw": 0
+          },
+          "stored": {
+            "frequency": 6339,
+            "bandwidth_raw": 0
+          }
+        }
+      ]
+    },
+    {
+      "slot": 3,
+      "gains": {
+        "working": [
+          6,
+          -2,
+          0,
+          2,
+          4
+        ],
+        "stored": [
+          6,
+          -2,
+          0,
+          2,
+          4
+        ]
+      },
+      "bands": [
+        {
+          "working": {
+            "frequency": 90,
+            "bandwidth_raw": 0
+          },
+          "stored": {
+            "frequency": 90,
+            "bandwidth_raw": 0
+          }
+        },
+        {
+          "working": {
+            "frequency": 406,
+            "bandwidth_raw": 8192
+          },
+          "stored": {
+            "frequency": 406,
+            "bandwidth_raw": 8192
+          }
+        },
+        {
+          "working": {
+            "frequency": 783,
+            "bandwidth_raw": 8167
+          },
+          "stored": {
+            "frequency": 783,
+            "bandwidth_raw": 8167
+          }
+        },
+        {
+          "working": {
+            "frequency": 4001,
+            "bandwidth_raw": 8192
+          },
+          "stored": {
+            "frequency": 4001,
+            "bandwidth_raw": 8192
+          }
+        },
+        {
+          "working": {
+            "frequency": 7001,
+            "bandwidth_raw": 0
+          },
+          "stored": {
+            "frequency": 7001,
+            "bandwidth_raw": 0
+          }
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "default_balance": 128,
+    "brightness_channels": [
+      70,
+      70,
+      70,
+      70,
+      70,
+      70,
+      70,
+      70,
+      70
+    ],
+    "alert_volume": 100
+  },
+  "status": {
+    "raw": "02010100020201000203800002046400",
+    "battery": 100,
+    "charging": false,
+    "status_byte": 128
+  }
+}

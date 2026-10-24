@@ -1,3 +1,15 @@
+# Latest checkpoint — slot 1 recovered (2026-10-24)
+
+The inherited uncommitted client/tests/baselines were preserved and continued.
+`docs/EQ-RECOVERY.md` records static bank semantics and successful host recovery:
+slot1 working and stored now both `[-4,-2,-3,7,7]`; every other captured EQ
+field and mediator setting was unchanged. Only verified six-byte `0x63` SET
+was sent; no persistent sync. Private before/after/TX/RX are under
+`artifacts/backups/slot1-recovery-host/`. Original evidence remains historical;
+never restore its corrupted working gains. `tools/check_settings.py` offline
+and existing selftest pass. Full app continuation follows this checkpoint.
+Older unresolved-bank and no-write descriptions below are superseded.
+
 ---
 name: Astro A50 Linux
 status: active
