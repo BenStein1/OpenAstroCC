@@ -19,8 +19,8 @@ to click a Microphone-tab slider (sidetone) and the noise-gate combo through
 the real GUI and ran it live: exact before==after, evidence
 `artifacts/backups/20261024-194620-a3c06269/`. Ran `a50_gui.py --smoke` live;
 screenshot confirms slot1 still `[-4,-2,-3,7,7]` and the new tabs render.
-All of this is now **committed**. See PROJECT.md's matching section for the
-full account and docs/FEATURES.md for the per-feature ledger.
+All of this is now **committed** at e47c86b. See docs/FEATURES.md for the
+per-feature ledger.
 
 ## Slot 1 EQ recovery — COMPLETE, do not repeat
 
@@ -48,37 +48,31 @@ The user has been informed. Do not claim no settings changed in the earlier
 pass: there were no intentional writes then, but the new evidence strongly
 supports an unintended working-bank modification.
 
-## Recover existing workers first
+## Completed workers — all inactive
 
-Use **nori-client get_worker**, not the legacy bridge or a fresh duplicate.
-Both were **running** when checked immediately before this checkpoint:
+All workers from this checkpoint are terminal; listed for reference only. Do not
+attempt resume; all relevant work is committed.
 
-| Worker | Agent/model | Nori worker ID | Scope |
-|---|---|---|---|
-| Astra-recover-complete | codex / gpt-6.1-sol | `bcf7b754-4adb-4666-a2d5-9ac38fa18f3b` | Recovery committed; continuing full Gen3 app |
-| Astra-mic-map | litellm / litellm/nvidia-free-fast | `4e1d4ca4-17ef-4201-8000-e7944c30a808` | Read-only A50 Europa mic/stream GET/SET/bounds mapping |
+| Worker | Brain/model | Nori ID | Terminal status | Scope |
+|---|---|---|---|---|
+| Astra-recover-complete | Codex/gpt-6.1-sol | `bcf7b754-4adb-4666-a2d5-9ac38fa18f3b` | **Failed** — hit usage limit before commit | Verified slot1 recovery; implemented mic/stream client code, GUI tabs, backup schema v2; uncommitted work was saved and later verified+committed by Sonnet |
+| Astra-mic-map | LiteLLM/nvidia-free-fast | `4e1d4ca4-17ef-4201-8000-e7944c30a808` | **Cancelled** — no additional findings | Read-only A50 mic/stream mapping; saved evidence reused by Codex |
+| Astra-finish-sonnet | Claude/Sonnet | (worker ID not recorded) | **Completed** — committed e47c86b | Verified Codex's uncommitted work against baseline evidence; extended GUI live test for Microphone tab; verified no sync sent; all checks passed and committed |
 
-The previous primary `80fca206-08f3-4495-aa82-7c38ca632cd2` was **cancelled**
-to deliver the recovery discovery before intentional write tests. It was not
-stalled and its code must be preserved. Nori lacks a worker follow-up-message
-tool, so the replacement received its partial work and urgent context explicitly.
+Nori process exit terminates workers. Query `get_worker` only if resuming a specific
+named worker explicitly. For the current state, inspect git log and working tree.
 
-A context clear can keep workers alive while Nori stays open. A Nori process
-exit does not. Query status/output, inspect current files/commits, and resume
-from the disk state if needed. Running metadata alone is not verification.
+## Current worktree state
 
-## Preserve the current worktree
+Latest committed checkpoint is **e47c86b** (Sonnet verification pass, 2026-10-24).
+This supersedes recovery/documentation milestones `2561494`/`6ed8bcc`.
+Worktree is clean; no pending changes or dirty files.
 
-The recovery/client checkpoint is **`2561494`**; context-clear documentation
-followed at `6ed8bcc`. Check `git log` and `git status` for newer milestones
-from the active worker rather than assuming the checkpoint is still latest.
-The worktree was clean immediately after the recovery and documentation commits.
-
-The inherited A50Client, snapshot functionality, tests and recovery utility are
-preserved/committed. Earlier baseline JSON files under evidence/ describe the
-pre-recovery state and are historical. The correct recovered baseline is the
-private after.json identified above. Preserve any new dirty files from the
-continuing worker; do not revert/clean them or commit incomplete code blindly.
+The inherited A50Client, snapshot functionality, tests, recovery utility, and
+verified mic/stream/GUI client code are all committed. The correct recovered
+baseline for slot1 is `artifacts/backups/slot1-recovery-host/after.json`.
+Do not restore suspect working gains from old baseline files. All baseline
+snapshots used for reversible testing pass (`before==after`, no stray sync).
 
 ## Current feature work and evidence
 
@@ -99,7 +93,8 @@ continuing worker; do not revert/clean them or commit incomplete code blindly.
 - Target: `artifacts/classic-acc/ASTRO Command Center.exe`, classic1.0.226,
   SHA256 `991e558129af98765cba4f02b10fa5cc4d537e2b6bb4bd3032ca010832eb2dcf`.
 - Codex detected installed PyQt6; use it for the native UI without a dependency
-  install if still available. UI is not implemented or verified at this checkpoint.
+  install if still available. Mic/stream tabs implemented and verified with live
+  GUI write/readback tests; listening and other controls' audible proof pending.
 
 ## Authorization and remaining live-test boundary
 
