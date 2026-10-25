@@ -13,7 +13,7 @@ from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, 
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGridLayout, QFormLayout, QLabel, QPushButton, QTabWidget,
     QSpinBox, QDoubleSpinBox, QComboBox, QFileDialog, QMessageBox, QPlainTextEdit,
-    QSlider, QFrame, QSizePolicy)
+    QSlider, QFrame, QSizePolicy, QStyle, QStyleOptionSlider)
 import a50
 
 ACCENT = '#ff7a1a'
@@ -91,6 +91,57 @@ def band_response(kind, freq, gain_db, octaves, f):
     return 20 * math.log10(num / den) if num and den else 0.0
 
 
+class DragSlider(QSlider):
+    """QSlider that only moves when its handle is dragged.
+
+    The handle drags normally; a click on the groove steps by one page toward the click
+    instead of jumping; the pointer never moves it without a pressed button; the wheel
+    only works once the slider has keyboard focus (so scrolling past it does nothing).
+    """
+
+    def __init__(self, orientation, parent=None):
+        super().__init__(orientation, parent)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setMouseTracking(False)
+        self.dragging = False
+
+    def handle_rect(self):
+        opt = QStyleOptionSlider()
+        self.initStyleOption(opt)
+        return self.style().subControlRect(QStyle.ComplexControl.CC_Slider, opt,
+                                           QStyle.SubControl.SC_SliderHandle, self)
+
+    def mousePressEvent(self, event):
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        pos = event.position().toPoint()
+        handle = self.handle_rect()
+        if handle.adjusted(-4, -4, 4, 4).contains(pos):
+            self.dragging = True
+            super().mousePressEvent(event)
+            return
+        self.setFocus()
+        horizontal = self.orientation() == Qt.Orientation.Horizontal
+        toward_max = (pos.x() > handle.center().x()) if horizontal else (pos.y() < handle.center().y())
+        self.setValue(self.value() + (self.pageStep() if toward_max else -self.pageStep()))
+
+    def mouseMoveEvent(self, event):
+        if self.dragging and event.buttons() & Qt.MouseButton.LeftButton:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self.dragging:
+            self.dragging = False
+            super().mouseReleaseEvent(event)
+        self.setSliderDown(False)
+
+    def wheelEvent(self, event):
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
+
+
 class SliderRow(QWidget):
     """Horizontal slider with a live value readout; value()/setValue() like a spin box."""
     valueChanged = pyqtSignal(int)
@@ -98,7 +149,7 @@ class SliderRow(QWidget):
     def __init__(self, low, high, fmt='%d', ends=None, detent=None, parent=None):
         super().__init__(parent)
         self.fmt = fmt
-        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider = DragSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(low, high)
         self.slider.setPageStep(max(1, (high - low) // 20))
         self.slider.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -469,7 +520,7 @@ class Window(QMainWindow):
             box.setSpacing(12)
             controls = []
             for band in range(1, 6):
-                gain = QSlider(Qt.Orientation.Vertical)
+                gain = DragSlider(Qt.Orientation.Vertical)
                 gain.setRange(-12, 12)
                 gain.setTickPosition(QSlider.TickPosition.TicksRight)
                 gain.setTickInterval(6)
