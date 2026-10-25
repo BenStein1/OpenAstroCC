@@ -10,11 +10,11 @@ import math
 import subprocess
 import time
 from PyQt6.QtCore import QEvent, QPointF, QProcess, QRectF, Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QIcon, QPixmap, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QStylePainter
+from PyQt6.QtGui import QColor, QIcon, QPixmap, QFont, QLinearGradient, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGridLayout, QFormLayout, QLabel, QPushButton, QTabWidget,
     QSpinBox, QDoubleSpinBox, QComboBox, QFileDialog, QMessageBox, QInputDialog, QPlainTextEdit,
-    QSlider, QFrame, QSizePolicy, QStyle, QStyleOptionSlider)
+    QSlider, QFrame, QSizePolicy, QStyle, QStyleOptionSlider, QStylePainter)
 import a50
 import a50_names
 
