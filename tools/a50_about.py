@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-NOTICES = ROOT / "docs/THIRD_PARTY_NOTICES.md"
+NOTICES = (Path(getattr(sys, "_MEIPASS", ROOT)) / "docs/THIRD_PARTY_NOTICES.md")
 SETUP = Path(__file__).resolve().with_name("a50_setup.py")
 
 
@@ -40,6 +40,7 @@ class AudioSetupDialog(QDialog):
         self.preview_button = QPushButton("Preview setup")
         self.install_button = QPushButton("Install configuration…")
         self.install_button.setEnabled(False)
+        self.install_button.setObjectName('primary')
         close = QPushButton("Close")
         row.addWidget(self.preview_button)
         row.addWidget(self.install_button)
@@ -61,8 +62,13 @@ class AudioSetupDialog(QDialog):
         self.install_button.setEnabled(False)
         self.output.setPlainText("Checking A50 audio configuration…" if action == "preview"
                                  else "Installing approved A50 configuration…")
-        self.process.start(sys.executable, [str(SETUP), action] +
-                           (["--yes"] if action == "install" else []))
+        # PyInstaller's sys.executable is the frozen GUI binary, not Python.
+        # The private dispatch path lets the same setup code work in AppImage.
+        args = (["--a50-audio-setup", action] if getattr(sys, "frozen", False)
+                else [str(SETUP), action])
+        if action == "install":
+            args.append("--yes")
+        self.process.start(sys.executable, args)
 
     def preview(self):
         self.preview_ok = False
@@ -140,6 +146,7 @@ class AboutDialog(QDialog):
         row.addStretch(1)
         row.addWidget(close)
         layout.addLayout(row)
+        audio.setObjectName('primary')
         self.audio_button = audio
 
     def open_audio(self):
