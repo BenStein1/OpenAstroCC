@@ -52,6 +52,19 @@ neighboring directories **inside the AppImage**.
 - License: **GPL-2.0-or-later with the Bootloader Exception**.
 - Terms: `licenses/PyInstaller-COPYING.txt`.
 
+### Qt/X11 XCB and XKB runtime helper libraries
+
+The Linux AppImage also bundles the system's XCB and libxkbcommon helper
+shared libraries needed for Qt's `xcb` platform plugin on minimal desktops.
+These are separate third-party works, not part of the OpenAstroCC GPL code.
+
+- Their upstream copyright/license terms are provided verbatim from the
+  Ubuntu build packages under
+  `usr/share/doc/astro-a50-linux/third-party/qt-xcb-system-libraries/`
+  within the released AppImage, named by library package.
+- XCB and libxkbcommon typically use permissive X11/MIT-family terms;
+  each enclosed package's own copyright file is authoritative.
+
 ### Additional third-party libraries included with Qt
 
 Copyright belongs to each respective upstream contributor.
