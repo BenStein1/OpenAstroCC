@@ -131,7 +131,7 @@ class AboutDialog(QDialog):
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
 
-        credit = QLabel("© 2026 Benjamin Conner and contributors · GPLv3")
+        credit = QLabel("© 2026 Benjamin Conner · GPLv3")
         credit.setStyleSheet("color: #aeb5c3;")
         layout.addWidget(credit)
         project = QLabel(
