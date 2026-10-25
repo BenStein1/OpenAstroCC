@@ -1,6 +1,6 @@
 # Resume after context clear
 
-Checkpoint: 2026-10-24 (updated by worker Astra-surround-integration, Claude/Sonnet).
+Checkpoint: 2026-10-24 (updated by worker Astra-surround-integration, Claude/Sonnet).  Durable surround routing now active with module-remap nodes, no restart needed.
 **Read this before changing anything or dispatching work.**
 
 ## Normal-game 5.1 surround — DONE, do not repeat
