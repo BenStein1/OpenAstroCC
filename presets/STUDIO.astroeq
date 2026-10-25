@@ -1,0 +1,17 @@
+[General]
+Name=STUDIO
+
+[Eq_Bands]
+Eq_Band_1=0
+Eq_Band_2=0
+Eq_Band_3=0
+Eq_Band_4=5
+Eq_Band_5=7
+Eq_Freq_Band_1=95
+Eq_Freq_Band_2=419
+Eq_Freq_Band_3=783
+Eq_Freq_Band_4=3499
+Eq_Freq_Band_5=6100
+Eq_Bandwidth_2=1
+Eq_Bandwidth_3=2
+Eq_Bandwidth_4=1
