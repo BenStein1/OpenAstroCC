@@ -20,14 +20,44 @@ files are included in
 `usr/share/doc/astro-a50-linux/third-party/BUNDLED-COMPONENTS.md` and
 neighboring directories **inside the AppImage**.
 
-| Component | Copyright / attribution | License | Terms provided |
-|---|---|---|---|
-| **PyQt6** | © Riverbank Computing Limited | GPL-3.0-only (open-source edition) | Full application GPL-3.0-only text in `LICENSE`, plus wheel license files |
-| **PyQt6-sip** | © Riverbank Computing Limited | GPL-3.0-only (open-source edition) | GPL-3.0-only and wheel license files |
-| **Qt 6** (libraries and plugins bundled by the PyQt6-Qt6 wheel) | © The Qt Company Ltd. and individual Qt contributors | LGPL-3.0 / GPL-3.0 as applicable; some subcomponents have additional terms | `licenses/LGPL-3.0-only.txt`, `licenses/LICENSE`, plus Qt wheel license files |
-| **Python 3** runtime/stdlib | © Python Software Foundation and contributors | Python Software Foundation License 2.0 and included historical licenses | `licenses/Python-2.0.txt` and upstream Python distribution license |
-| **PyInstaller bootloader** | © PyInstaller Development Team, Giovanni Bajo and earlier contributors | GPL-2.0-or-later with Bootloader Exception | `licenses/PyInstaller-COPYING.txt` |
-| **Qt's additional third-party libraries** | Their respective upstream contributors | Per-component terms listed in Qt license files | Verbatim Qt wheel license files included from the installed build packages |
+### PyQt6 and PyQt6-sip
+
+© Riverbank Computing Limited. **GPL-3.0-only**, open-source edition.
+
+- Terms: complete GPL-3.0-only text in `LICENSE`, plus copyright and
+  license files from the installed PyQt6 and SIP wheels.
+
+### Qt 6 (libraries and plugins)
+
+© The Qt Company Ltd. and individual Qt contributors.
+
+- License: **LGPL-3.0 / GPL-3.0**, as applicable. Some bundled subcomponents
+  have additional terms.
+- Terms: `licenses/LGPL-3.0-only.txt`, `licenses/LICENSE`, and Qt wheel
+  license files.
+
+### Python 3 runtime and standard library
+
+© Python Software Foundation and contributors.
+
+- License: **Python Software Foundation License 2.0** and the included
+  historical component licenses.
+- Terms: `licenses/Python-2.0.txt` and the upstream Python distribution
+  license.
+
+### PyInstaller bootloader
+
+© PyInstaller Development Team, Giovanni Bajo, and earlier contributors.
+
+- License: **GPL-2.0-or-later with the Bootloader Exception**.
+- Terms: `licenses/PyInstaller-COPYING.txt`.
+
+### Additional third-party libraries included with Qt
+
+Copyright belongs to each respective upstream contributor.
+
+- Licenses: per-component terms documented in Qt's distribution.
+- Terms: verbatim legal notices included from the installed Qt wheel packages.
 
 **Qt LGPL compliance:** Qt is shipped as separate dynamically loaded shared
 libraries inside the AppImage. Users can extract the AppImage
