@@ -1,0 +1,51 @@
+name: Build Astro A50 Linux AppImage
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  appimage:
+    name: AppImage x86_64 (Ubuntu 22.04)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install build and Qt runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libxkbcommon-x11-0 libxcb-cursor0 xvfb curl
+          python -m pip install --upgrade pip
+          python -m pip install PyQt6==6.9.1 pyinstaller==6.16.0
+      - name: Test hardware-independent code and GUI
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          python tools/check_gui.py
+      - name: Build executable AppImage (with license files)
+        run: bash scripts/build_appimage.sh
+      - name: Smoke-test bundled AppImage (offline; no headset writes)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          ./dist/Astro-A50-Linux-x86_64.AppImage --a50-audio-setup --help
+          ./dist/Astro-A50-Linux-x86_64.AppImage --snapshot evidence/a50-baseline.json --smoke
+          test -s dist/Astro-A50-Linux-x86_64.AppImage
+          test -s dist/Astro-A50-Linux-x86_64.AppImage.sha256
+          cd dist && sha256sum -c Astro-A50-Linux-x86_64.AppImage.sha256
+      - name: Upload tested AppImage and SHA256
+        uses: actions/upload-artifact@v4
+        with:
+          name: Astro-A50-Linux-x86_64
+          path: |
+            dist/Astro-A50-Linux-x86_64.AppImage
+            dist/Astro-A50-Linux-x86_64.AppImage.sha256
+          if-no-files-found: error
