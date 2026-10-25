@@ -112,19 +112,19 @@ decodes as four fixed 4-byte groups `[tag02, field_id, value, 00]` at payload
 offsets0,4,8,12 — field_id2=EQslot(+6), field_id3=balance(+10),
 field_id4=battery/charging(+14), matching the bindings above. field_id1
 (payload+2, value01 in every capture) was given a fresh static consumer trace
-(docs/FINDINGS.md §16): `FUN_0048a210` is the sole writer of its cache slot,
-and exhaustive enumeration of every caller of both the UI change-notification
-dispatcher (10 sites, types2-6 only, never1) and `FUN_0048a210` itself (3
-sites total: the A50 status dispatcher plus the headset/mediator init
-routines) proves **zero code paths anywhere in the binary read it**. This is
-not "unlabeled" — it is proven dead data from the shipped client's own
-perspective, so the client itself has no name for it to recover. A real-world
-label (connection/link flag or otherwise) can only come from Astro's own
-protocol documentation or a live toggle test with Ben; neither is available
-here. A parallel string search for Dolby/flip/mute/link text returned zero
+(docs/FINDINGS.md §16): `FUN_0048a210` writes its cache slot, and enumeration
+of resolved call sites of the UI change-notification dispatcher (10 resolved sites,
+types2-6 only, never1) and `FUN_0048a210` itself (3 resolved sites: the A50 status
+dispatcher plus the headset/mediator init routines) finds **zero code paths in
+resolved paths reading it**. This bounded search does not exclude indirect dispatch
+or external consumers. The shipped client may not interpret it in resolved paths,
+but absence from decompilation does not prove no code path exists. A real-world
+label can only come from Astro's own protocol documentation or a live toggle test
+with Ben; further static dataflow analysis or live controlled interaction can
+investigate. A parallel string search for Dolby/flip/mute/link text returned zero
 matches, and no other already-bound opcode in this project corresponds to
-those features either (docs/FINDINGS.md §16.4) — a bounded negative result,
-not proof the device lacks them.
+those features in resolved paths either (docs/FINDINGS.md §16.4) — a bounded negative
+result, not proof the device lacks them.
 
 Identity branch: runtime PID15 differs from PID14, choosing03 for base and83
 for headset. The latter uses the shared high-bit extended marker, not a guessed

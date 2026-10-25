@@ -661,12 +661,13 @@ Ghidra's own stated limits apply: only decompiler output, only Ghidra-defined
 strings, and an empty search does not prove text is absent. Pseudocode is not
 original source.
 
-## 16. Current UI (0x72) field_id1: exhaustive consumer trace — resolved as dead data
+## 16. Current UI (0x72) field_id1: bounded consumer trace in resolved paths — status unresolved
 
-Worker: Astra-status-trace. Date: 2026-10-24. Scope: resolve the long-open
-`0x72` `field_id1` unknown and determine whether Dolby, mic-flip/mute, or
-headset-link are exposed by any already-bound status path. **[STATIC]** only;
-no hardware touched, no writes, no toggles.
+Worker: Astra-status-trace. Date: 2026-10-24. Scope: search resolved static
+call paths for consumers of `0x72` `field_id1` and check whether Dolby,
+mic-flip/mute, or headset-link appear in already-bound status opcodes. **[STATIC]** only;
+no hardware touched, no writes, no toggles. Limitation: `procedure_callers` enumerates resolved
+(non-virtual) edges only; absence here does not exclude indirect dispatch or module-external consumers.
 
 ### 16.1 Ground-truth byte alignment (corrects the offset framing, not the bindings)
 
@@ -694,15 +695,15 @@ raw 32-bit groups verbatim into its own object at `+0x2c/+0x30/+0x34/+0x38`
 (`field_id1→+0x2c`, EQ`→+0x30`, balance`→+0x34`, battery`→+0x38`). This is the
 **only** place in the binary that writes `+0x2c`.
 
-### 16.3 Exhaustive callee enumeration proves zero consumers of +0x2c
+### 16.3 Resolved-call enumeration finds no consumers of +0x2c in static paths
 
 - `procedure_callers(0x4a57e0)` (the UI change-notification dispatcher) returns
-  exactly 10 call sites in the whole binary: `0x4785f0, 0x478d10, 0x47a2e0,
+  exactly 10 resolved call sites in the whole binary: `0x4785f0, 0x478d10, 0x47a2e0,
   0x4837f0, 0x4838c0, 0x483990, 0x483a50, 0x484860, 0x4849c0, 0x48afa0`. Every
   one of them was decompiled. Collectively they dispatch notification types
-  `2, 3, 4, 5, 6` only. **No caller anywhere in the binary dispatches type 1.**
-  This rules out a "connection/link flag" notification path for field_id1 by
-  direct enumeration, not absence of search.
+  `2, 3, 4, 5, 6` only. **No resolved caller in the examined call sites dispatches type 1.**
+  This rules out a "connection/link flag" notification path for field_id1 in resolved paths,
+  but does not exclude indirect/virtual dispatch or module-external consumers.
 - `FUN_00483a50` (0x483a50) — the proven A50 Current-UI status handler (called
   from `0x4d35a0`, confirmed in the prior worker's dossier) — has exactly
   three callees that read the parsed cache: `FUN_00488540` (EQ, reads cache
@@ -711,31 +712,29 @@ raw 32-bit groups verbatim into its own object at `+0x2c/+0x30/+0x34/+0x38`
   their extraction math (`byte(word>>0x10)`, clamped against
   `FUN_00485710`'s bounds table) was traced end to end and matches the
   ground-truth values in §16.1 exactly. **There is no fourth getter call
-  anywhere in this function's body.**
-- `procedure_callers(0x48a210)` returns exactly three call sites total:
+  visible in this function's decompiled body.**
+- `procedure_callers(0x48a210)` returns exactly three resolved call sites total:
   `0x483a50` (the dispatcher above), `0x485fd0` ("initializing headset"), and
   `0x4862b0` ("initializing mediator"). Both init routines were fully
   decompiled. `0x485fd0` only consumes the EQ-slot cache (`+0xc =
   *(this+0x194)`, i.e. `FUN_00488540`'s output). `0x4862b0` duplicates the
   balance/battery bit-extraction inline to seed its own mediator defaults
   (`+0x18/+0x1c/+0x20`) but never touches `+0x2c`. **Neither reads
-  field_id1.**
+  field_id1 in resolved paths.**
 
-Across all three call sites of the one function that ever writes `+0x2c`, and
-across all ten call sites of the one function that ever raises a UI
-change-notification for this object, zero code paths read or branch on
-field_id1's value. This is a closed, exhaustive proof over the entire call
-graph reachable from the Current-UI parser, not an absence-of-evidence
-argument: **field_id1 is parsed, cached, and never consumed anywhere in this
-binary.** It cannot be given a feature label (Dolby/connection/link/anything
-else) because the shipped Windows client itself does not interpret it — there
-is no "what the app calls it" to recover. Resolving its real-world meaning now
-requires either Astro's own firmware/protocol documentation (not shipped
-here) or a live toggle test with the field held under observation while
-Dolby/mic-flip/disconnect are each exercised, which needs Ben and is out of
-scope for a static-only pass.
+Across the three resolved call sites of the one function that writes `+0x2c`, and
+across the ten resolved call sites of the one function that raises UI
+change-notifications, decompiled code finds zero references to field_id1's value.
+This is a bounded negative result: **field_id1 is parsed and cached but not
+consumed in any resolved (non-virtual) call path this pass located.**
+The shipped Windows client may not interpret it, but absence from resolved paths
+does not exclude indirect dispatch, virtual methods, or module-external code.
+Resolving its real-world meaning requires either Astro's own firmware/protocol
+documentation (not shipped here) or a live toggle test with the field observed
+while Dolby/mic-flip/disconnect are exercised — further static dataflow analysis
+or live controlled interaction can investigate this further.
 
-### 16.4 Dolby / mic-flip-mute / headset-link: no bound status path exists
+### 16.4 Dolby / mic-flip-mute / headset-link: no bound status path in resolved opcodes
 
 `search_strings` (regex, case-insensitive) for `dolby|flip|headset link|
 mic.?mute|link status` across the binary's defined string inventory returned
@@ -744,13 +743,14 @@ this project (`0x69/0x63` gain, `0x70/0x6f` coefficients, `0x72` Current UI,
 `0x77/0x73` default balance, `0x79/0x75` brightness, `0x7a/0x76` alert,
 `0x6b` default mode, `0x78` accel timeout, `0x7b/0x71` mic EQ, `0x68/0x62`
 slider, `0x6a/0x64` noise gate, `0x03/0x83` identity, `0x61` sync) and the
-exhaustive getter/notify enumeration in §16.3, no already-bound status read in
-this client corresponds to Dolby, mic-flip/mute, or headset-link. This is a
-bounded negative result (absence across every status path this project has
-already identified and bound), not proof the device lacks these features or
-that no other undiscovered opcode carries them — Qt builds commonly
-externalize UI strings to `.qm`/`.ts` resources outside the EXE, so the empty
-string search is corroborating, not dispositive, evidence on its own.
+resolved-path getter/notify enumeration in §16.3, no already-bound status opcode
+in resolved paths corresponds to Dolby, mic-flip/mute, or headset-link. This is
+a bounded negative result over identified opcodes, not proof the device lacks
+these features or that no other opcode (discovered or indirect) carries them —
+Qt builds commonly externalize UI strings to `.qm`/`.ts` resources outside the
+EXE, so the empty string search is corroborating, not exhaustive. The meaning
+remains unresolved until a live toggle test with Ben or Astro documentation
+becomes available.
 
 ### 16.5 Evidence IDs
 
