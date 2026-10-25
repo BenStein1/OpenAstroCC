@@ -40,8 +40,8 @@ REQUIRED = (
     "libxkbcommon-x11.so.0",
     "libxkbcommon.so.0",
 )
-LINE = re.compile(r"^\\s*(\\S+)\\s+=>\\s+(\\S+)")
-CACHE = re.compile(r"^\\s*(\\S+)\\s+\\(libc6,x86-64\\)\\s+=>\\s+(\\S+)")
+LINE = re.compile(r"^\s*(\S+)\s+=>\s+(\S+)")
+CACHE = re.compile(r"^\s*(\S+)\s+\(libc6,x86-64\)\s+=>\s+(\S+)")
 
 
 def bundle(internal: Path) -> list[str]:
