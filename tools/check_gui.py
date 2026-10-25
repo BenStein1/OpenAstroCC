@@ -52,6 +52,10 @@ def run(live):
         assert width.rawValue() == 409
         width.slider.setValue(50)
         assert width.rawValue() == 4096, 'center must be exactly 1.0 octave'
+        width.slider.setValue(48)
+        assert width.slider.value() == 50 and width.rawValue() == 4096, 'snap left of center'
+        width.slider.setValue(52)
+        assert width.slider.value() == 50 and width.rawValue() == 4096, 'snap right of center'
         width.slider.setValue(100)
         assert width.rawValue() == 12288, 'right end must be 3.0 octaves'
         width.setRawValue(original_raw)
