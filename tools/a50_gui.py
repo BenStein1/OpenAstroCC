@@ -902,10 +902,10 @@ class Window(QMainWindow):
             combo.blockSignals(True)
             combo.clear()
             combo.addItem('Choose preset…', None)
-            # Simple UI categories; keep file ownership internal so an example
-            # is read-only and only personal presets can be overwritten.
+            # Simple UI categories; keep file ownership internal so bundled custom presets
+            # are read-only and only personal presets can be overwritten.
             for label, sources in (('Astro', ('Astro',)),
-                                   ('Custom', ('Example', 'Mine'))):
+                                   ('Custom', ('Custom', 'Mine'))):
                 options = [p for p in self.library_presets if p.source in sources]
                 if options:
                     if combo.count() > 1:
