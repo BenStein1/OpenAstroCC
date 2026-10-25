@@ -29,7 +29,8 @@ jobs:
           sudo apt-get install -y libgl1 libegl1 libopengl0 xvfb xauth curl \
             libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
             libxcb-keysyms1 libxcb-render-util0 libxcb-util1 libxcb-xkb1 \
-            libxcb-xinput0 libxcb-xinerama0
+            libxcb-xinput0 libxcb-xinerama0 libxcb-shape0 libxcb-shm0 \
+            libxcb-randr0 libxcb-render0 libxcb-sync1 libxcb-xfixes0 libxcb-glx0
           python -m pip install --upgrade pip
           python -m pip install PyQt6==6.9.1 pyinstaller==6.16.0
       - name: Test hardware-independent code and GUI
@@ -65,6 +66,7 @@ jobs:
           cat build/appimage-xcb-smoke.log
           test "$status" -eq 124
           test -f dist/AppDir/usr/lib/astro-a50-linux/_internal/libxcb-icccm.so.4
+          test -f dist/AppDir/usr/lib/astro-a50-linux/_internal/libxcb-shape.so.0
       - name: Upload tested AppImage and SHA256
         uses: actions/upload-artifact@v4
         with:
