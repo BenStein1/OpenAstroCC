@@ -720,7 +720,7 @@ class Window(QMainWindow):
             name_label.setObjectName('section')
             name_row.addWidget(name_label, 1)
             picker = QComboBox()
-            picker.setToolTip('Load a bundled Astro preset, the Bass & Clarity example, or one of your saved presets into the editor.')
+            picker.setToolTip('Choose an Astro factory preset or a custom preset, including Bass & Clarity and your saved EQs.')
             picker.setMinimumWidth(165)
             picker.activated.connect(lambda index, s=slot: self.choose_library_preset(s, index))
             name_row.addWidget(picker)
@@ -902,13 +902,16 @@ class Window(QMainWindow):
             combo.blockSignals(True)
             combo.clear()
             combo.addItem('Choose preset…', None)
-            for source in ('Astro', 'Example', 'Mine'):
-                options = [p for p in self.library_presets if p.source == source]
+            # Simple UI categories; keep file ownership internal so an example
+            # is read-only and only personal presets can be overwritten.
+            for label, sources in (('Astro', ('Astro',)),
+                                   ('Custom', ('Example', 'Mine'))):
+                options = [p for p in self.library_presets if p.source in sources]
                 if options:
                     if combo.count() > 1:
                         combo.insertSeparator(combo.count())
                     for preset in options:
-                        combo.addItem('%s · %s' % (source, preset.name), preset)
+                        combo.addItem('%s · %s' % (label, preset.name), preset)
             combo.setCurrentIndex(0)
             combo.blockSignals(False)
 
