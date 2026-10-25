@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build an x86_64 Astro A50 Linux AppImage from the source checkout.
+# Build an x86_64 OpenAstroCC AppImage from the source checkout.
 # Requires Linux, Python 3.11+, PyQt6, PyInstaller, curl and appimagetool.
 set -e
 cd "$(dirname "$0")/.."
@@ -70,8 +70,29 @@ elif [ ! -f "$tool" ]; then
       -o "$tool"
     chmod +x "$tool"
 fi
-# AppImage bundling tool can run without FUSE in CI.
-ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$tool" "$appdir" \
-    "$root/dist/Astro-A50-Linux-x86_64.AppImage"
-sha256sum dist/Astro-A50-Linux-x86_64.AppImage > dist/Astro-A50-Linux-x86_64.AppImage.sha256
-printf 'AppImage built at %s\n' "$root/dist/Astro-A50-Linux-x86_64.AppImage"
+# AppImageLauncher on some desktops intercepts appimagetool itself and
+# fails to read modern zstd-compressed AppImages. Suppress the integration UI;
+# if the binfmt hook still prevents launch, extract via unsquashfs and run the
+# extracted AppRun directly. Neither path modifies system AppImageLauncher.
+output="$root/dist/OpenAstroCC-x86_64.AppImage"
+if ! ARCH=x86_64 APPIMAGELAUNCHER_DISABLE=1 APPIMAGE_EXTRACT_AND_RUN=1 \
+    "$tool" "$appdir" "$output"; then
+    echo "AppImageLauncher may be intercepting appimagetool; trying extracted fallback." >&2
+    if ! command -v unsquashfs >/dev/null 2>&1; then
+        echo "Please install squashfs-tools (unsquashfs) to use the no-launcher fallback." >&2
+        exit 2
+    fi
+    extracted="$root/build/appimagetool-extracted"
+    offset="$(python3 scripts/appimage_offset.py "$tool")"
+    rm -rf "$extracted"
+    mkdir -p "$extracted"
+    unsquashfs -no-progress -d "$extracted" -o "$offset" "$tool"
+    if [ ! -x "$extracted/AppRun" ]; then
+        echo "Extracted appimagetool has no executable AppRun." >&2
+        exit 2
+    fi
+    APPDIR="$extracted" ARCH=x86_64 "$extracted/AppRun" "$appdir" "$output"
+fi
+test -s "$output"
+(cd "$root/dist" && sha256sum OpenAstroCC-x86_64.AppImage > OpenAstroCC-x86_64.AppImage.sha256)
+printf 'AppImage built at %s\n' "$output"
