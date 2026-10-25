@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
     QSlider, QFrame, QSizePolicy, QStyle, QStyleOptionSlider, QStylePainter)
 import a50
 import a50_names
+import a50_library
 
 ACCENT = '#ff7a1a'
 STYLE = '''
@@ -656,6 +657,10 @@ class Window(QMainWindow):
             self.eq_names = list(a50_names.DEFAULT_NAMES)
             self.names_error = str(exc)
         self.eq_auto_names = [None, None, None]
+        self.eq_selected_refs = [None, None, None]
+        self.eq_origin_signatures = [None, None, None]
+        self.eq_loading = False
+        self.library_presets = []
         self.busy = False
         self.quiet = False
         self.done_message = None
@@ -703,6 +708,7 @@ class Window(QMainWindow):
         layout.addWidget(self.tabs, 1)
         self.eq = []
         self.eq_name_labels = []
+        self.eq_pickers = []
         self.curves = []
         for slot in range(1, 4):
             page = QWidget()
@@ -713,14 +719,16 @@ class Window(QMainWindow):
             name_label = QLabel()
             name_label.setObjectName('section')
             name_row.addWidget(name_label, 1)
-            rename = QPushButton('Rename EQ…')
-            rename.setToolTip('Names are stored locally by this application, not on the headset.')
-            rename.clicked.connect(lambda _checked=False, s=slot: self.rename_eq(s))
-            name_row.addWidget(rename)
-            name_from_file = QPushButton('Name from file…')
-            name_from_file.setToolTip('Read the preset name from an Astro .astroeq file; do not import or change its EQ levels.')
-            name_from_file.clicked.connect(lambda _checked=False, s=slot: self.name_eq_from_file(s))
-            name_row.addWidget(name_from_file)
+            picker = QComboBox()
+            picker.setToolTip('Load a bundled Astro preset, the Bass & Clarity example, or one of your saved presets into the editor.')
+            picker.setMinimumWidth(165)
+            picker.activated.connect(lambda index, s=slot: self.choose_library_preset(s, index))
+            name_row.addWidget(picker)
+            self.eq_pickers.append(picker)
+            save_preset = QPushButton('Save preset…')
+            save_preset.setToolTip('Save a new custom preset or explicitly overwrite one of your own. Bundled presets are read-only.')
+            save_preset.clicked.connect(lambda _checked=False, s=slot: self.save_library_preset(s))
+            name_row.addWidget(save_preset)
             box.addLayout(name_row)
             self.eq_name_labels.append(name_label)
             controls = []
@@ -735,6 +743,10 @@ class Window(QMainWindow):
                 width = BandwidthSlider() if band in (2, 3, 4) else None
                 controls.append((gain, freq, width))
             self.eq.append(controls)
+            for gain, freq, width in controls:
+                for widget in (gain, freq, width):
+                    if widget is not None:
+                        widget.valueChanged.connect(lambda *_args, s=slot: self.eq_edited(s))
             curve = EqCurve(controls)
             self.curves.append(curve)
             box.addWidget(curve, 1)
@@ -779,6 +791,7 @@ class Window(QMainWindow):
             inner.addLayout(footer)
             box.addWidget(frame)
             self.tabs.addTab(page, 'EQ %d' % slot)
+        self.refresh_library_pickers()
         self.refresh_eq_names()
         self.sliders = {}
         # Volume and balance
@@ -875,24 +888,134 @@ class Window(QMainWindow):
         QTimer.singleShot(0, self.refresh)
 
     def eq_display_names(self):
-        # Explicit custom names always win; only blank/default slots are
-        # eligible for a verified numeric match from existing .astroeq files.
-        return [name if name != 'Unnamed' else (auto or 'Unnamed')
-                for name, auto in zip(self.eq_names, self.eq_auto_names)]
+        names = []
+        for index, saved in enumerate(self.eq_names):
+            picked = self.eq_selected_refs[index]
+            auto = self.eq_auto_names[index]
+            names.append(saved if saved != 'Unnamed' else
+                         (picked.name if picked else auto or 'Unnamed'))
+        return names
+
+    def refresh_library_pickers(self):
+        self.library_presets = a50_library.available_presets()
+        for combo in self.eq_pickers:
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem('Choose preset…', None)
+            for source in ('Astro', 'Example', 'Mine'):
+                options = [p for p in self.library_presets if p.source == source]
+                if options:
+                    if combo.count() > 1:
+                        combo.insertSeparator(combo.count())
+                    for preset in options:
+                        combo.addItem('%s · %s' % (source, preset.name), preset)
+            combo.setCurrentIndex(0)
+            combo.blockSignals(False)
+
+    def editor_slot_signature(self, slot):
+        controls = self.eq[slot - 1]
+        return (tuple(gain.value() for gain, _, _ in controls),
+                tuple(freq.value() for _, freq, _ in controls),
+                tuple(controls[i - 1][2].rawValue() for i in (2, 3, 4)))
+
+    def eq_edited(self, slot):
+        if not self.eq_loading:
+            self.refresh_eq_names()
 
     def update_auto_eq_names(self, document):
-        self.eq_auto_names = a50_names.match_preset_names(document)
+        self.refresh_library_pickers()
+        discovered = [a50_library.recognize(document, slot, self.library_presets)
+                      for slot in range(1, 4)]
+        self.eq_auto_names = [p.name if p else None for p in discovered]
+        for i, preset in enumerate(discovered):
+            if self.eq_origin_signatures[i] is None:
+                self.eq_origin_signatures[i] = a50_library.slot_signature(document, i + 1)
+                self.eq_selected_refs[i] = preset
         self.refresh_eq_names()
 
     def refresh_eq_names(self):
         for index, name in enumerate(self.eq_display_names()):
-            self.eq_name_labels[index].setText('Preset name: ' + name)
+            baseline = self.eq_origin_signatures[index]
+            modified = (self.document is not None and baseline is not None and
+                        self.editor_slot_signature(index + 1) != baseline)
+            display = ('Custom (unsaved)' if name == 'Unnamed' else name + ' (modified)') if modified else name
+            self.eq_name_labels[index].setText('Preset name: ' + display)
             self.eq_name_labels[index].setToolTip(
-                'Custom local label' if self.eq_names[index] != 'Unnamed'
-                else 'Matched against local Astro EQ files' if self.eq_auto_names[index]
-                else 'No matching local .astroeq preset found; use Rename EQ or Import .astroeq')
+                'Edited in the app; Save preset… saves your version without changing bundled Astro files.'
+                if modified else 'Preset file names are local; the headset stores only EQ numbers.')
             self.tabs.setTabText(index, 'EQ %d' % (index + 1))
             self.tabs.setTabToolTip(index, 'Headset EQ slot %d' % (index + 1))
+
+    def choose_library_preset(self, slot, index):
+        combo = self.eq_pickers[slot - 1]
+        preset = combo.itemData(index)
+        combo.setCurrentIndex(0)
+        if preset is None:
+            return
+        try:
+            imported = a50.import_preset(self.draft(), slot, str(preset.path))
+            updated = list(self.eq_names)
+            updated[slot - 1] = preset.name
+            self.commit_eq_names(updated)
+            baseline = self.document
+            self.populate(imported)
+            self.document = baseline  # Staged editor settings, not hardware writes.
+            self.eq_selected_refs[slot - 1] = preset
+            self.eq_origin_signatures[slot - 1] = a50_library.slot_signature(imported, slot)
+            self.refresh_eq_names()
+            self.notice.setText('Loaded %s into EQ %d editor. Write working settings to hear it.' %
+                                (preset.name, slot))
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            self.notice.setText('Could not load preset: ' + str(exc))
+
+    def save_library_preset(self, slot):
+        if self.document is None:
+            return
+        idx = slot - 1
+        old = self.eq_selected_refs[idx]
+        name = None
+        overwrite = False
+        if old is not None and old.writable:
+            answer = QMessageBox.question(self, 'Save custom preset',
+                'Overwrite your saved preset “%s”?\n'
+                'Yes = overwrite it, No = save under another name.' % old.name,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No |
+                QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.No)
+            if answer == QMessageBox.StandardButton.Cancel:
+                return
+            if answer == QMessageBox.StandardButton.Yes:
+                name, overwrite = old.name, True
+        if name is None:
+            current_name = self.eq_display_names()[idx]
+            suggested = (current_name + ' Custom' if old is not None and not old.writable
+                         else current_name if current_name != 'Unnamed' else 'My EQ %d' % slot)
+            name, accepted = QInputDialog.getText(
+                self, 'Save custom EQ', 'Name your preset:', text=suggested)
+            if not accepted:
+                return
+        try:
+            name = a50_names.normalize_name(name)
+            document = self.draft()
+            try:
+                saved = a50_library.save_custom(document, slot, name, overwrite=overwrite)
+            except FileExistsError:
+                answer = QMessageBox.question(self, 'Overwrite your saved preset?',
+                    'A custom preset named “%s” already exists. Overwrite it?' % name,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No)
+                if answer != QMessageBox.StandardButton.Yes:
+                    return
+                saved = a50_library.save_custom(document, slot, name, overwrite=True)
+            updated = list(self.eq_names)
+            updated[idx] = saved.name
+            self.commit_eq_names(updated)
+            self.eq_selected_refs[idx] = saved
+            self.eq_origin_signatures[idx] = a50_library.slot_signature(document, slot)
+            self.refresh_library_pickers()
+            self.refresh_eq_names()
+            self.notice.setText('Saved “%s” in your preset library. The headset was not changed.' % name)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            self.notice.setText('Could not save preset: ' + str(exc))
 
     def commit_eq_names(self, names):
         # Keep UI labels unchanged if writing the local metadata fails.
