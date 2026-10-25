@@ -3,13 +3,13 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# A private repository consumes hosted minutes. Cancel superseded PR/branch
-# builds so rapid pushes don't spend minutes building obsolete commits.
+# Cancel superseded branch/PR builds; tagged releases use their own ref.
 concurrency:
   group: appimage-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -55,3 +55,45 @@ jobs:
             dist/OpenAstroCC-x86_64.AppImage
             dist/OpenAstroCC-x86_64.AppImage.sha256
           if-no-files-found: error
+
+  release:
+    name: Publish tagged AppImage release
+    needs: appimage
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download tested AppImage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: OpenAstroCC-x86_64
+          path: dist
+      - name: Verify checksum and semantic version tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "Expected vMAJOR.MINOR.PATCH[-suffix] tag" >&2; exit 1; }
+          cd dist
+          sha256sum -c OpenAstroCC-x86_64.AppImage.sha256
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -e
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refusing to replace published binaries." >&2
+            exit 1
+          fi
+          extras=()
+          # Early v0 versions and suffixed tags are pre-releases.
+          if [[ "$RELEASE_TAG" == v0.* || "$RELEASE_TAG" == *-* ]]; then extras+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" \
+            dist/OpenAstroCC-x86_64.AppImage \
+            dist/OpenAstroCC-x86_64.AppImage.sha256 \
+            --verify-tag \
+            --title "OpenAstroCC $RELEASE_TAG" \
+            --generate-notes "${extras[@]}"
