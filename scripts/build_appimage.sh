@@ -42,6 +42,22 @@ cp docs/THIRD_PARTY_NOTICES.md "$appdir/usr/share/doc/astro-a50-linux/"
 cp -a licenses "$appdir/usr/share/doc/astro-a50-linux/"
 python3 scripts/collect_bundle_licenses.py "$appdir/usr/share/doc/astro-a50-linux/third-party"
 
+# Qt's XCB plugin also ships a few libraries from the build distribution.
+# Preserve each distribution package's original copyright/license notices.
+xcb_notices="$appdir/usr/share/doc/astro-a50-linux/third-party/qt-xcb-system-libraries"
+mkdir -p "$xcb_notices"
+for pkg in libxcb-cursor0 libxcb-glx0 libxcb-icccm4 libxcb-image0 \
+           libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+           libxcb-render0 libxcb-shape0 libxcb-shm0 libxcb-sync1 \
+           libxcb-util1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xinput0 \
+           libxcb-xkb1 libxkbcommon-x11-0 libxkbcommon0; do
+    if [ -f "/usr/share/doc/$pkg/copyright" ]; then
+        cp "/usr/share/doc/$pkg/copyright" "$xcb_notices/$pkg.copyright"
+    else
+        echo "WARNING: no system copyright notice for $pkg; review this build before redistribution." >&2
+    fi
+done
+
 # Render the same app icon the GUI already uses.
 QT_QPA_PLATFORM=offscreen python3 - <<'PY'
 import sys
