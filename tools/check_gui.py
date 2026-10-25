@@ -95,6 +95,20 @@ def run(live):
                 window.load_backup()
             assert window.eq_names[1] == 'Imported from Windows'
             assert window.draft()['slots'] == before['slots']
+            # Name-only file association must work even if the original
+            # imported preset was customized; it must never change EQ values.
+            named_file = Path(home) / 'custom-from-windows.astroeq'
+            altered = copy.deepcopy(before)
+            altered['slots'][2]['gains']['working'][0] += 1
+            a50.export_preset(altered, 3, named_file, name='My Custom Windows EQ')
+            unchanged = window.draft()['slots']
+            with patch('a50_gui.QFileDialog.getOpenFileName',
+                       return_value=(str(named_file), 'Astro EQ (*.astroeq)')):
+                window.name_eq_from_file(3)
+            assert window.eq_names[2] == 'My Custom Windows EQ'
+            assert 'My Custom Windows EQ' in window.eq_name_labels[2].text()
+            assert a50_names.load_names()[2] == 'My Custom Windows EQ'
+            assert window.draft()['slots'] == unchanged, 'name-only import altered EQ values'
             # A hardware numeric match may suggest a label, but never overrides
             # the explicit name the user chose (including an imported label).
             matches = Path(home) / 'matches'
