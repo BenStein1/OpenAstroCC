@@ -2,9 +2,8 @@
 
 Read PROJECT.md, HANDOFF.md and docs/A50-PROTOCOL.md before continuing.
 
-Ben's latest instruction (2026-10-24) explicitly authorizes **Claude workers**
-now, choosing models to conserve tokens/session use; this supersedes the
-earlier note below authorizing Codex instead. No paid-credit Fable/Opus
+Ben's latest instruction (2026-10-24) sets **NVIDIA free models as primary**
+and **Codex as secondary**; Claude is capped. Do not use paid-credit Fable/Opus
 without separate authorization. See docs/WORKERS.md for current/prior worker
 status. The supervisor owns worker dispatch.
 

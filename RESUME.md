@@ -1,3 +1,27 @@
+# Current checkpoint — audio is working live; durability is open (2026-10-24)
+
+This note supersedes older surround status below. Current live mechanism is the
+PipeWire-Pulse `module-remap-sink`/`module-remap-source` set applied by
+`pactl load-module`; do not describe it as restart-durable. Saved result evidence
+shows an unpaused SDL2 silent stream with `device_status_running=1` and six
+`pw-link` connections to the Game master, plus a paplay stream connected and
+linked to `A50_Game_51` (see
+`artifacts/surround-integration/easyeffects/RESULT.md`). The earlier
+`artifacts/surround-integration/sdl-*-probe.log` files alone are paused probes;
+use the EasyEffects result artifacts for running-stream proof.
+
+Remaining gates: first-launch EasyEffects/stream-restore race for new app names;
+PipeWire-Pulse startup can race A50 master enumeration; native WirePlumber rules
+are installed but have never been activated by a fresh process; KDE tray hide
+filter remains unapplied. The native node rules change maps to FL/FR/... while
+`15-astro-a50-remap.conf` still expects AUX master maps, so do not run these
+unchanged together. See `artifacts/surround-integration/durable-review.md` for
+the smallest restart-dependent trial and its readbacks. No service restart or
+new live audio change is authorized/performed by this checkpoint.
+
+Worker model preference is NVIDIA free primary, Codex secondary; Claude is
+capped (per Ben's latest instruction).
+
 # Resume after context clear
 
 Checkpoint: 2026-10-24 (updated by worker Astra-surround-integration, Claude/Sonnet).  Durable surround routing now active with module-remap nodes, no restart needed.

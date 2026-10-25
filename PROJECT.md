@@ -76,6 +76,10 @@ updated: 2026-10-24
 
 # Astro A50 Linux
 
+## Audio durability checkpoint — 2026-10-24
+
+The live remap path is verified with running silent SDL2 and paplay streams in `artifacts/surround-integration/easyeffects/RESULT.md`; fresh-session persistence, new-app first-launch routing, and tray filtering remain open. WirePlumber native ALSA rules are structurally supported by the installed 0.5 source but unactivated. Their named raw maps conflict with the remap config's current AUX master map, so the two paths need a single-mechanism restart trial. No restart or live audio change was performed. See `RESUME.md` and the ignored `artifacts/surround-integration/durable-review.md`. Worker models: NVIDIA free primary, Codex secondary; Claude capped.
+
 Build native Linux support for Ben's **Astro A50 Gen 3** on KDE/PipeWire,
 using a userspace HID utility and correct audio routing. Add a KDE front end
 once the underlying controls work.

@@ -34,11 +34,9 @@ metadata is not implementation proof. Workers do not survive Nori process exit.
 
 ## Current authorization
 
-Ben explicitly instructed (2026-10-24): use **Claude workers now**, choosing
-models to conserve tokens/session use — this supersedes the older
-Codex/NVIDIA-only note (kept below for history) and the separate
-Codex-retired shared note. No paid-credit Fable/Opus without separate
-authorization.
+Ben latest instruction (2026-10-24): **NVIDIA free models primary, Codex
+secondary; Claude capped.** This supersedes older worker preferences
+below. No paid-credit Fable/Opus without separate authorization.
 
 Prior note (history): Ben had permitted Codex workers, overriding the older
 shared retirement note for this project; skip Gemini and the depleted Merge
