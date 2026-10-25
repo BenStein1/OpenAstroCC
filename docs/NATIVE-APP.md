@@ -19,7 +19,8 @@ persisted) and starts a live peak meter of the A50 mic (`parec` on the `A50_Mic`
 source, falling back to another A50 source) with a "Talking" indicator. While it
 runs, moving the sidetone slider re-applies the level after a short pause, so you
 can leave it open and hear the change. **Stop test** (or closing the app) stops the
-capture. Other unwritten editor edits are reset by the reload after each write.
+capture. Other unwritten editor edits (mic EQ, noise gate, ...) are kept in the editor and still
+need **Write working settings**.
 
 The app reads three EQ slots, all five frequencies and the three bell bandwidths,
 dock defaults, current battery/charging, hardware balance and selected EQ slot.

@@ -472,6 +472,7 @@ class Window(QMainWindow):
         self.busy = False
         self.done_message = None
         self.testing = False
+        self.pending = None
         self.capture = None
         self.sidetone_timer = QTimer(self)
         self.sidetone_timer.setSingleShot(True)
@@ -636,7 +637,8 @@ class Window(QMainWindow):
         inner.addWidget(hint('Test sidetone writes the level above to the headset (working setting only, nothing '
                              'is saved) and shows a live meter of the A50 mic. Leave it running and move the '
                              'slider to hear the change as you talk.'))
-        inner.addWidget(hint('Onboard controls; listening and recording confirmation remain pending.'))
+        inner.addWidget(hint('Changes here stay in the editor until you press “Write working settings”. Only the sidetone '
+                             'test writes on its own. Listening and recording confirmation remain pending.'))
         box.addWidget(frame)
         box.addStretch(1)
         self.mic_tab = self.tabs.addTab(page, 'Microphone')
@@ -700,6 +702,7 @@ class Window(QMainWindow):
         job.deleteLater()
 
     def failed(self, message):
+        self.pending = None
         self.connected = False
         self.identity = None
         self.status_label.setText('A50 operation failed: ' + message)
@@ -874,6 +877,7 @@ class Window(QMainWindow):
             self.sidetone_timer.start()
             return
         level = self.sidetone.value()
+        self.pending = self.draft()
         target = copy.deepcopy(self.document)
         target['sliders']['sidetone']['working'] = level
         self.apply(target, 'Sidetone set to %d%% (test running; nothing saved). Talk to hear it.' % level)
@@ -890,7 +894,13 @@ class Window(QMainWindow):
 
     def changed(self, result):
         document, directory = result
+        pending, self.pending = self.pending, None
         self.populate(document)
+        if pending is not None:
+            # Keep the other unwritten editor edits; they still need "Write working settings".
+            baseline = self.document
+            self.populate(pending)
+            self.document = baseline
         self.notice.setText(getattr(self, 'done_message', None) or 'Readback verified. Backup and exact TX/RX: ' + directory)
         self.done_message = None
 
