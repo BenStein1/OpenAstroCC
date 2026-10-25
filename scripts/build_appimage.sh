@@ -35,7 +35,8 @@ python3 scripts/bundle_qt_xcb.py "$root/dist/pyinstaller/astro-a50-linux/_intern
 
 rm -rf "$appdir"
 mkdir -p "$appdir/usr/lib" "$appdir/usr/share/doc/astro-a50-linux" \
-         "$appdir/usr/share/icons/hicolor/256x256/apps"
+         "$appdir/usr/share/icons/hicolor/256x256/apps" \
+         "$appdir/usr/share/metainfo" "$appdir/usr/share/applications"
 cp -a dist/pyinstaller/astro-a50-linux "$appdir/usr/lib/"
 cp LICENSE "$appdir/usr/share/doc/astro-a50-linux/LICENSE"
 cp docs/THIRD_PARTY_NOTICES.md "$appdir/usr/share/doc/astro-a50-linux/"
@@ -70,6 +71,10 @@ if not make_icon().pixmap(256, 256).save("dist/AppDir/usr/share/icons/hicolor/25
 PY
 
 cp packaging/astro-a50-linux.desktop "$appdir/astro-a50-linux.desktop"
+# AppStream metadata carries the actual application screenshot for app catalogs;
+# keep the desktop ID and icon consistent with the existing application.
+cp packaging/astro-a50-linux.desktop "$appdir/usr/share/applications/astro-a50-linux.desktop"
+cp packaging/io.github.BenStein1.OpenAstroCC.metainfo.xml "$appdir/usr/share/metainfo/"
 ln -s usr/share/icons/hicolor/256x256/apps/astro-a50-linux.png "$appdir/astro-a50-linux.png"
 ln -s astro-a50-linux.png "$appdir/.DirIcon"
 
