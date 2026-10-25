@@ -828,6 +828,8 @@ class Window(QMainWindow):
         self.testing = True
         self.sidetone_test.setText('Stop test')
         self.sidetone.valueChanged.connect(self.sidetone_edited)
+        self.mic_eq.currentIndexChanged.connect(self.sidetone_edited)
+        self.noise_gate.currentIndexChanged.connect(self.sidetone_edited)
         self.apply_sidetone()
 
     @staticmethod
@@ -858,6 +860,8 @@ class Window(QMainWindow):
             capture.deleteLater()
         if self.testing:
             self.sidetone.valueChanged.disconnect(self.sidetone_edited)
+            self.mic_eq.currentIndexChanged.disconnect(self.sidetone_edited)
+            self.noise_gate.currentIndexChanged.disconnect(self.sidetone_edited)
         self.testing = False
         self.sidetone_timer.stop()
         self.sidetone_test.setText('Test sidetone')
@@ -880,7 +884,10 @@ class Window(QMainWindow):
         self.pending = self.draft()
         target = copy.deepcopy(self.document)
         target['sliders']['sidetone']['working'] = level
-        self.apply(target, 'Sidetone set to %d%% (test running; nothing saved). Talk to hear it.' % level)
+        target['microphone']['eq'] = self.mic_eq.currentIndex()
+        target['microphone']['noise_gate']['working'] = a50.NOISE_GATE_PACKETS[self.noise_gate.currentIndex()].hex()
+        self.apply(target, 'Test running: sidetone %d%%, mic EQ %s, noise gate %s written (nothing saved). Talk to hear it.'
+                   % (level, self.mic_eq.currentText(), self.noise_gate.currentText()))
 
     def apply(self, target=None, message=None):
         self.done_message = message
