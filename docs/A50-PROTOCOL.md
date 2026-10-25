@@ -1,4 +1,6 @@
 # A50 class binding and EQ parameter read
+> **Current canonical developer reference:** [Gen 3 Implementation Guide](GEN3-IMPLEMENTATION-GUIDE.md). This file preserves the research chronology, including A20-derived assumptions that were subsequently disproved on A50 PID 0015. The canonical guide summarizes the final A50-specific class-bound protocol and live evidence. Do not implement early hypotheses from this historical document without checking its later corrections.
+
 
 2026-10-24. Static REA/Ghidra analysis of classic ACC 1.0.226, SHA-256
 `991e558129af98765cba4f02b10fa5cc4d537e2b6bb4bd3032ca010832eb2dcf`.
