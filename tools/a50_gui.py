@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Native A50 settings app. Run with /usr/bin/python3 (system PyQt6)."""
 import argparse
+import configparser
 import copy
 import json
 import sys
@@ -936,7 +937,7 @@ class Window(QMainWindow):
                 self.commit_eq_names(updated)
             self.notice.setText('EQ %d named “%s” from file. EQ settings were not changed.' %
                                 (slot, preset_name))
-        except (OSError, ValueError, KeyError, TypeError) as exc:
+        except (OSError, ValueError, KeyError, TypeError, configparser.Error) as exc:
             self.notice.setText('Could not read preset name: ' + str(exc))
 
     @staticmethod
