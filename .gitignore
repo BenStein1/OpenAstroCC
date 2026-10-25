@@ -3,3 +3,8 @@ artifacts/
 
 # Generated Python bytecode
 __pycache__/
+
+# AppImage build products and generated bundle metadata
+build/
+dist/
+*.spec
