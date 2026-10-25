@@ -20,23 +20,34 @@ confirmed against hardware. Offscreen check: `QT_QPA_PLATFORM=offscreen python3 
 
 ## EQ slot names (local metadata)
 
-The hardware exposes three numbered EQ slots and their numeric parameters; **no
-name field has been established in the USB protocol**. The GUI therefore shows
-`EQ 1 · Unnamed`, `EQ 2 · Unnamed`, and `EQ 3 · Unnamed` until the user
-assigns names or imports a named preset. Each tab offers **Rename EQ…**.
-Labels are saved locally in
-`$XDG_CONFIG_HOME/astro-a50-linux/eq-names.json` (usually
-`~/.config/astro-a50-linux/eq-names.json`) and survive headset refresh and
-app relaunch without writing to the hardware.
+The hardware exposes three numbered EQ slots and their numeric parameters;
+**no name field exists in the reverse-engineered USB EQ replies**. Tabs now
+always read **EQ 1**, **EQ 2**, **EQ 3**; the separate **Preset name:** line
+under each tab displays a local label. The status bar shows only the numbered
+slot, never a redundant "· Unnamed" suffix.
 
-The classic Astro `.astroeq` format includes `[General] Name`:
-importing a preset adopts that name for the destination slot, and exporting
-uses the current slot name instead of generating `A50 slot N`. JSON device
-backups now include an optional `eq_names` array; older backups without it
-remain valid and do not overwrite existing local labels. The status bar shows
-the active numbered slot and its local name when the hardware reports that
-slot. The default **Unnamed** is deliberately honest: the app cannot know
-which old Windows preset is loaded based on slot number alone.
+When a device snapshot is read, the app searches **locally available** classic
+Astro `.astroeq` preset files and compares *all five gains, all five
+frequencies, and all three bell bandwidths* to each hardware slot. Only one
+unambiguous matching name is displayed. Expected search directories include
+the repo's preserved, git-ignored
+`artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ/`,
+`artifacts/appdata-classic/Astro A50 Wireless/Astro EQ/` and
+`artifacts/appdata-store/ASTRO A50 Wireless/`, plus
+`~/.local/share/astro-a50-linux/presets/`. Additional directories can be
+provided in `ASTRO_A50_EQ_DIRS` (colon-separated on Linux). The original
+Astro binary/preset collection is not redistributed with this GitHub repo;
+on a clean clone with no matching local preset files, the UI correctly shows
+**Preset name: Unnamed**. Custom device EQs likewise stay Unnamed unless
+manually named.
+
+**Rename EQ…** stores a user label locally in
+`$XDG_CONFIG_HOME/astro-a50-linux/eq-names.json` (normally
+`~/.config/astro-a50-linux/eq-names.json`); explicit labels override
+automatic matches and survive refresh and app relaunch. The classic format's
+`[General] Name` is adopted on import and retained on export. JSON backups
+include optional `eq_names`; older backups remain valid. No naming operation
+writes headset settings.
 
 Renaming a preset only changes computer-local metadata. EQ gain/frequency/
 bandwidth changes still require **Write working settings** and explicit
