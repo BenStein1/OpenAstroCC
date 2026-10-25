@@ -229,6 +229,94 @@ class SliderRow(QWidget):
         super().setEnabled(enabled)
 
 
+class BandwidthSlider(QWidget):
+    """Bell-band octave width: narrow left, 1.0 octave at center, wide right.
+
+    The physical slider is intentionally non-linear so the useful 1-octave
+    reference is centered. The original 4.12 fixed-point value is retained
+    *exactly* when loaded from the headset. Only touching the control changes
+    that value. No decimal spin box or rounding on refresh/export.
+    """
+    valueChanged = pyqtSignal(float)
+    RAW_MIN, RAW_MAX = 409, 12288
+    CENTER = 50
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._raw = 4096
+        self.slider = DragSlider(Qt.Orientation.Horizontal)
+        self.slider.setRange(0, 100)
+        self.slider.setPageStep(5)
+        self.slider.setSingleStep(1)
+        self.slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.slider.setTickInterval(self.CENTER)
+        self.slider.setToolTip('Move left for narrower EQ bandwidth, right for wider. Center is 1.0 octave.')
+        self.readout = QLabel()
+        self.readout.setObjectName('value')
+        self.readout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(3)
+        for label in ('Narrow', 'Wide'):
+            lbl = QLabel(label)
+            lbl.setObjectName('hint')
+            lbl.setStyleSheet('font-size: 10px;')
+            if label == 'Narrow':
+                row.addWidget(lbl)
+                row.addWidget(self.slider, 1)
+            else:
+                row.addWidget(lbl)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
+        layout.addWidget(self.readout)
+        layout.addLayout(row)
+        self.slider.valueChanged.connect(self._slider_changed)
+        self.setRawValue(self._raw)
+
+    @staticmethod
+    def _octaves_for(position):
+        if position <= 50:
+            return 0.1 + 0.9 * position / 50
+        return 1.0 + 2.0 * (position - 50) / 50
+
+    @staticmethod
+    def _position_for(octaves):
+        if octaves <= 1.0:
+            return round(50 * (octaves - 0.1) / 0.9)
+        return round(50 + 50 * (octaves - 1.0) / 2.0)
+
+    def _slider_changed(self, position):
+        # Endpoint at 0 uses the hardware's actual minimum (409/4096).
+        self.setRawValue(self.RAW_MIN if position == 0 else
+                         round(self._octaves_for(position) * 4096))
+
+    def setRawValue(self, raw):
+        if type(raw) is not int or not self.RAW_MIN <= raw <= self.RAW_MAX:
+            raise ValueError('bandwidth raw value outside the headset range')
+        old = self._raw
+        self._raw = raw
+        self.slider.blockSignals(True)
+        self.slider.setValue(min(100, max(0, self._position_for(self.value()))))
+        self.slider.blockSignals(False)
+        self.readout.setText('%.2f oct' % self.value())
+        self.setToolTip('Bandwidth %.2f octaves (stored exactly as 4.12 value %d)' %
+                        (self.value(), raw))
+        if raw != old:
+            self.valueChanged.emit(self.value())
+
+    def rawValue(self):
+        return self._raw
+
+    def value(self):
+        return self._raw / 4096
+
+    def setValue(self, octaves):
+        # Used by the existing EQ curve's mouse-wheel shortcut.
+        bounded = min(3.0, max(self.RAW_MIN / 4096, float(octaves)))
+        self.setRawValue(round(bounded * 4096))
+
+
 class LevelMeter(QWidget):
     """Horizontal peak meter, -60..0 dBFS, with a decaying peak-hold tick."""
     FLOOR = -60.0
@@ -335,7 +423,8 @@ class EqCurve(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         for gain, freq, width in controls:
             for control in (gain, freq, width):
-                control.valueChanged.connect(lambda *_: self.update())
+                if control is not None:
+                    control.valueChanged.connect(lambda *_: self.update())
 
     def plot(self):
         return QRectF(44, 14, max(self.width() - 60, 10), max(self.height() - 44, 10))
@@ -358,7 +447,7 @@ class EqCurve(QWidget):
 
     def band(self, i):
         gain, freq, width = self.controls[i]
-        return self.KINDS[i], freq.value(), gain.value(), width.value()
+        return self.KINDS[i], freq.value(), gain.value(), width.value() if width is not None else 0.0
 
     def total(self, f):
         return sum(band_response(*self.band_args(i), f) for i in range(5))
@@ -575,13 +664,7 @@ class Window(QMainWindow):
                 gain.setPageStep(1)
                 freq = self.spin(80, 15000)
                 freq.setSuffix(' Hz')
-                width = QDoubleSpinBox()
-                width.setDecimals(6)
-                width.setRange(409 / 4096, 3) if band in (2, 3, 4) else width.setRange(0, 0)
-                width.setSingleStep(0.1)
-                width.setEnabled(band in (2, 3, 4))
-                width.setSuffix(' oct')
-                width.setToolTip('Exact headset bandwidth; six decimals preserve the stored precision')
+                width = BandwidthSlider() if band in (2, 3, 4) else None
                 controls.append((gain, freq, width))
             self.eq.append(controls)
             curve = EqCurve(controls)
@@ -606,12 +689,19 @@ class Window(QMainWindow):
                 strip.addWidget(gain, 1, column, Qt.AlignmentFlag.AlignHCenter)
                 strip.addWidget(readout, 2, column)
                 strip.addWidget(freq, 3, column)
-                strip.addWidget(width, 4, column)
+                if width is not None:
+                    strip.addWidget(width, 4, column)
+                else:
+                    fixed = QLabel('Fixed shelf')
+                    fixed.setObjectName('hint')
+                    fixed.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    strip.addWidget(fixed, 4, column)
                 strip.setColumnStretch(column, 1)
             inner.addLayout(strip)
             footer = QHBoxLayout()
-            footer.addWidget(hint('Drag a node on the curve, or use the sliders. Wheel over a bell node to widen it. '
-                                  'Curve is an estimate. Edits stay here until “Write working settings”.'), 1)
+            footer.addWidget(hint('Bell bandwidth: Narrow (left) affects fewer frequencies; Wide (right) affects more. '
+                                  'Center is 1.0 octave. Wheel over a bell node to adjust width. '
+                                  'Curve is an estimate. Changes wait for “Write working settings”.'), 1)
             flat = QPushButton('Flatten gains')
             flat.clicked.connect(lambda _c=False, c=controls: [g.setValue(0) for g, _, _ in c])
             imp = QPushButton('Import .astroeq')
@@ -828,7 +918,8 @@ class Window(QMainWindow):
             for index, (gain, freq, width) in enumerate(controls):
                 gain.setValue(slot['gains']['working'][index])
                 freq.setValue(slot['bands'][index]['working']['frequency'])
-                width.setValue(slot['bands'][index]['working']['bandwidth_raw'] / 4096)
+                if width is not None:
+                    width.setRawValue(slot['bands'][index]['working']['bandwidth_raw'])
         settings = document['settings']
         self.editor_brightness = settings['brightness_channels'].copy()
         self.balance.setValue(settings['default_balance'])
@@ -852,7 +943,8 @@ class Window(QMainWindow):
         for slot, controls in zip(result['slots'], self.eq):
             slot['gains']['working'] = [gain.value() for gain, _, _ in controls]
             for values, (_, freq, width) in zip(slot['bands'], controls):
-                values['working'] = {'frequency': freq.value(), 'bandwidth_raw': round(width.value() * 4096)}
+                values['working'] = {'frequency': freq.value(),
+                                     'bandwidth_raw': width.rawValue() if width is not None else 0}
         settings = result['settings']
         settings['brightness_channels'] = self.editor_brightness.copy()
         settings['default_balance'] = self.balance.value()
