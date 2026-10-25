@@ -3,6 +3,7 @@
 
 These names are application metadata. They are NOT sent to the headset.
 """
+import configparser
 import json
 import os
 from pathlib import Path
@@ -118,7 +119,7 @@ def match_preset_names(document, directories=None):
             if len(gains) != 5 or len(freqs) != 5:
                 continue
             references.append((name, gains, freqs, widths))
-        except (OSError, ValueError, KeyError, TypeError, IndexError):
+        except (OSError, ValueError, KeyError, TypeError, IndexError, configparser.Error):
             continue
 
     identified = []
