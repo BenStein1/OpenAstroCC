@@ -112,8 +112,10 @@ jobs:
             exit 1
           fi
           extras=()
-          # Early v0 versions and suffixed tags are pre-releases.
-          if [[ "$RELEASE_TAG" == v0.* || "$RELEASE_TAG" == *-* ]]; then extras+=(--prerelease); fi
+          # A stable v0.x.y tag is still a regular release. Mark only
+          # explicit suffixes (for example v0.2.0-rc1) as pre-releases,
+          # so catalogs select newer v0.x.y builds over older releases.
+          if [[ "$RELEASE_TAG" == *-* ]]; then extras+=(--prerelease); fi
           gh release create "$RELEASE_TAG" \
             dist/OpenAstroCC-x86_64.AppImage \
             dist/OpenAstroCC-x86_64.AppImage.sha256 \
