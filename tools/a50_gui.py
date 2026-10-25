@@ -260,9 +260,10 @@ class CenterFillSlider(DragSlider):
         groove = self.style().subControlRect(
             QStyle.ComplexControl.CC_Slider, option,
             QStyle.SubControl.SC_SliderGroove, self)
-        painter.setPen(QPen(QColor(ACCENT), 6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-        painter.drawLine(QPointF(middle_handle.center().x(), groove.center().y()),
-                         QPointF(current_handle.center().x(), groove.center().y()))
+        if option.sliderPosition != middle.sliderPosition:
+            painter.setPen(QPen(QColor(ACCENT), 6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            painter.drawLine(QPointF(middle_handle.center().x(), groove.center().y()),
+                             QPointF(current_handle.center().x(), groove.center().y()))
         # Put the native white handle on top of the fill, not underneath it.
         option.subControls = QStyle.SubControl.SC_SliderHandle
         painter.drawComplexControl(QStyle.ComplexControl.CC_Slider, option)
@@ -761,7 +762,7 @@ class Window(QMainWindow):
                 strip.setColumnStretch(column, 1)
             inner.addLayout(strip)
             footer = QHBoxLayout()
-            footer.addWidget(hint('EQ edits are applied with “Write working settings”.'), 1)
+            footer.addStretch(1)
             flat = QPushButton('Flatten gains')
             flat.clicked.connect(lambda _c=False, c=controls: [g.setValue(0) for g, _, _ in c])
             imp = QPushButton('Import .astroeq')
