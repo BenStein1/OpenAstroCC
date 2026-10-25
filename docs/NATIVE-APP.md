@@ -21,15 +21,14 @@ confirmed against hardware. Offscreen check: `QT_QPA_PLATFORM=offscreen python3 
 ## Preset picker and custom EQ library
 
 The EQ header has a compact **Choose preset…** dropdown plus **Save preset…**.
-The list separates three categories:
+The list has just two visible categories:
 
 - **Astro:** the five shipped default `.astroeq` files in `presets/`; read-only.
-- **Example:** `presets/examples/Bass & Clarity.astroeq`, recreated from the
-  reported custom EQ 3 curve (gains +6/-2/0/+2/+4 dB at
-  90/406/783/4001/7001 Hz; all three bell widths 2.00 octaves); read-only.
-- **Mine:** writable personal presets stored in
+- **Custom:** includes the bundled `Bass & Clarity` custom EQ at
+  `presets/examples/Bass & Clarity.astroeq` and your personal presets in
   `$XDG_DATA_HOME/astro-a50-linux/presets/` (default
-  `~/.local/share/astro-a50-linux/presets/`).
+  `~/.local/share/astro-a50-linux/presets/`). The bundled Bass & Clarity
+  file is read-only; only personal custom files can be overwritten.
 
 Choosing a preset **only loads its values into the editor**. The headset is
 untouched until the existing **Write working settings** / **Save to headset**
@@ -42,8 +41,8 @@ Editing any gain, frequency, or bell width labels it **(modified)**; if
 the starting preset had no known name, it displays **Custom (unsaved)**.
 This marker is about the preset *file*, independent of whether changes have
 been written to the headset. **Save preset…** saves a separate `.astroeq`
-file in **Mine**, prompting for a name. When editing a previously selected
-Mine preset, it asks whether to overwrite **that personal file** or save
+file in your personal **Custom** library, prompting for a name. When editing a previously selected
+personal custom preset, it asks whether to overwrite **that file** or save
 as a new one. Overwrites require an explicit affirmative answer. Bundled
 Astro/default/example files are never overwritten, and preset-file saving
 never sends a USB command.
