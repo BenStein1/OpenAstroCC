@@ -13,9 +13,10 @@ from PyQt6.QtCore import QEvent, QPointF, QProcess, QRectF, Qt, QThread, QTimer,
 from PyQt6.QtGui import QColor, QIcon, QPixmap, QFont, QLinearGradient, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGridLayout, QFormLayout, QLabel, QPushButton, QTabWidget,
-    QSpinBox, QDoubleSpinBox, QComboBox, QFileDialog, QMessageBox, QPlainTextEdit,
+    QSpinBox, QDoubleSpinBox, QComboBox, QFileDialog, QMessageBox, QInputDialog, QPlainTextEdit,
     QSlider, QFrame, QSizePolicy, QStyle, QStyleOptionSlider)
 import a50
+import a50_names
 
 ACCENT = '#ff7a1a'
 STYLE = '''
@@ -603,6 +604,13 @@ class Window(QMainWindow):
         self.document = None
         self.offline = offline
         self.smoke = smoke
+        self.names_error = None
+        try:
+            self.eq_names = a50_names.load_names()
+        except (OSError, ValueError) as exc:
+            # Never erase or silently replace an invalid local names file.
+            self.eq_names = list(a50_names.DEFAULT_NAMES)
+            self.names_error = str(exc)
         self.busy = False
         self.quiet = False
         self.done_message = None
@@ -649,12 +657,23 @@ class Window(QMainWindow):
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs, 1)
         self.eq = []
+        self.eq_name_labels = []
         self.curves = []
         for slot in range(1, 4):
             page = QWidget()
             box = QVBoxLayout(page)
             box.setContentsMargins(0, 0, 0, 0)
             box.setSpacing(12)
+            name_row = QHBoxLayout()
+            name_label = QLabel()
+            name_label.setObjectName('section')
+            name_row.addWidget(name_label, 1)
+            rename = QPushButton('Rename EQ…')
+            rename.setToolTip('Names are stored locally by this application, not on the headset.')
+            rename.clicked.connect(lambda _checked=False, s=slot: self.rename_eq(s))
+            name_row.addWidget(rename)
+            box.addLayout(name_row)
+            self.eq_name_labels.append(name_label)
             controls = []
             for band in range(1, 6):
                 gain = DragSlider(Qt.Orientation.Vertical)
@@ -713,6 +732,7 @@ class Window(QMainWindow):
             inner.addLayout(footer)
             box.addWidget(frame)
             self.tabs.addTab(page, 'EQ %d' % slot)
+        self.refresh_eq_names()
         self.sliders = {}
         # Volume and balance
         page = QWidget()
@@ -795,6 +815,8 @@ class Window(QMainWindow):
         self.details.setReadOnly(True)
         self.tabs.addTab(self.details, 'Device / audio')
         self.notice = QLabel('Working writes are read back and backed up. Save to headset persists all working settings.')
+        if self.names_error:
+            self.notice.setText('EQ name file could not be read; names will not be overwritten: ' + self.names_error)
         self.notice.setObjectName('hint')
         self.notice.setWordWrap(True)
         layout.addWidget(self.notice)
@@ -804,6 +826,37 @@ class Window(QMainWindow):
         self.timer.start()
         self.update_enabled()
         QTimer.singleShot(0, self.refresh)
+
+    def refresh_eq_names(self):
+        for index, name in enumerate(self.eq_names):
+            display = name if len(name) <= 22 else name[:21] + '…'
+            self.eq_name_labels[index].setText('Preset name: ' + name)
+            self.tabs.setTabText(index, 'EQ %d · %s' % (index + 1, display))
+            self.tabs.setTabToolTip(index, 'Headset slot %d — %s (locally stored label)' % (index + 1, name))
+
+    def commit_eq_names(self, names):
+        # Keep UI labels unchanged if writing the local metadata fails.
+        saved = a50_names.save_names(names)
+        self.eq_names = saved
+        self.names_error = None
+        self.refresh_eq_names()
+
+    def rename_eq(self, slot):
+        index = slot - 1
+        value, ok = QInputDialog.getText(self, 'Rename EQ %d' % slot,
+                                          'Preset name (stored on this computer):',
+                                          text=self.eq_names[index])
+        if not ok:
+            return
+        try:
+            updated = list(self.eq_names)
+            updated[index] = a50_names.normalize_name(value)
+            if updated != self.eq_names:
+                self.commit_eq_names(updated)
+            self.notice.setText('EQ %d is named “%s” locally; no headset settings changed.' %
+                                (slot, self.eq_names[index]))
+        except (OSError, ValueError) as exc:
+            self.notice.setText('Could not rename EQ: ' + str(exc))
 
     @staticmethod
     def spin(low, high):
@@ -961,9 +1014,11 @@ class Window(QMainWindow):
 
     def show_status(self, status):
         prefix = 'Offline backup' if self.offline else 'A50 connected'
-        self.status_label.setText('%s · battery %d%% · %s · hardware balance %d · EQ %s' % (
+        slot = status.get('eq_slot')
+        slot_label = 'EQ %d · %s' % (slot, self.eq_names[slot - 1]) if slot in (1, 2, 3) else 'EQ unknown'
+        self.status_label.setText('%s · battery %d%% · %s · hardware balance %d · %s' % (
             prefix, status['battery'], 'charging' if status['charging'] else 'not charging',
-            status.get('current_balance', status['status_byte']), status.get('eq_slot', '?')))
+            status.get('current_balance', status['status_byte']), slot_label))
 
     def poll(self):
         if self.busy or self.offline:
@@ -1108,8 +1163,10 @@ class Window(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, 'Export device backup', '', 'JSON (*.json)')
         if path:
             try:
-                a50.save_json(path, self.document)
-                self.notice.setText('Exported last device readback: ' + path)
+                backup = copy.deepcopy(self.document)
+                backup['eq_names'] = list(self.eq_names)  # local-only metadata; not a headset field
+                a50.save_json(path, backup)
+                self.notice.setText('Exported device readback and local EQ names: ' + path)
             except Exception as exc:
                 self.notice.setText(str(exc))
 
@@ -1118,6 +1175,8 @@ class Window(QMainWindow):
         if path:
             try:
                 wanted = a50.validate_backup(json.loads(Path(path).read_text()))
+                imported_names = (a50_names.validate_names(wanted['eq_names'])
+                                  if 'eq_names' in wanted else None)
                 current = copy.deepcopy(self.document)
                 # Import into editor; retain current stored banks and concurrency baseline.
                 for old, new in zip(current['slots'], wanted['slots']):
@@ -1132,10 +1191,13 @@ class Window(QMainWindow):
                         current['sliders'][name]['working'] = banks['working']
                     current['microphone']['eq'] = wanted['microphone']['eq']
                     current['microphone']['noise_gate']['working'] = wanted['microphone']['noise_gate']['working']
+                if imported_names is not None:
+                    self.commit_eq_names(imported_names)
                 baseline = self.document
                 self.populate(current)
                 self.document = baseline
-                self.notice.setText('Backup loaded into editor; write working settings to restore it.')
+                self.notice.setText('Backup loaded into editor with local EQ names where provided; '
+                                    'write working settings to restore audio parameters.')
             except Exception as exc:
                 self.notice.setText('Import refused: ' + str(exc))
 
@@ -1146,12 +1208,19 @@ class Window(QMainWindow):
             return
         try:
             if importing:
+                # The .astroeq [General] Name is application metadata, not USB data.
+                imported_name = a50_names.normalize_name(a50.load_astroeq(path)['name'])
+                imported = a50.import_preset(self.draft(), slot, path)
+                updated = list(self.eq_names)
+                updated[slot - 1] = imported_name
+                self.commit_eq_names(updated)
                 baseline = self.document
-                self.populate(a50.import_preset(self.draft(), slot, path))
+                self.populate(imported)
                 self.document = baseline
-                self.notice.setText('Preset loaded into editor; write working settings to use it.')
+                self.notice.setText('Imported “%s” into EQ %d editor; write working settings to use it.' %
+                                    (imported_name, slot))
             else:
-                a50.export_preset(self.draft(), slot, path)
+                a50.export_preset(self.draft(), slot, path, name=self.eq_names[slot - 1])
         except Exception as exc:
             self.notice.setText(str(exc))
 
