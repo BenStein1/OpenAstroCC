@@ -147,6 +147,10 @@ class AboutDialog(QDialog):
         row.addWidget(close)
         layout.addLayout(row)
         audio.setObjectName('primary')
+        audio.setStyleSheet(
+            'QPushButton { background: #ff7a1a; border: 1px solid #ff7a1a; '
+            'color: #1a1006; border-radius: 8px; padding: 7px 14px; font-weight: 700; } '
+            'QPushButton:hover { background: #ff8f3d; }')
         self.audio_button = audio
 
     def open_audio(self):
