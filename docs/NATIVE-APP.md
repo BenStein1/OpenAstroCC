@@ -44,8 +44,13 @@ manually named.
 **Rename EQ…** stores a user label locally in
 `$XDG_CONFIG_HOME/astro-a50-linux/eq-names.json` (normally
 `~/.config/astro-a50-linux/eq-names.json`); explicit labels override
-automatic matches and survive refresh and app relaunch. The classic format's
-`[General] Name` is adopted on import and retained on export. JSON backups
+automatic matches and survive refresh and app relaunch. **Name from file…**
+lets a user select the original `.astroeq` file and adopt only its
+`[General] Name` for the selected headset slot, **without changing its
+current EQ gains, frequencies or widths**. This is especially useful for a
+modified/custom preset that cannot be positively recognized by numeric matching.
+The separate **Import .astroeq** action loads *both* its name and EQ parameters
+into the editor. Export retains the chosen/displayed name. JSON backups
 include optional `eq_names`; older backups remain valid. No naming operation
 writes headset settings.
 
