@@ -716,6 +716,10 @@ class Window(QMainWindow):
             rename.setToolTip('Names are stored locally by this application, not on the headset.')
             rename.clicked.connect(lambda _checked=False, s=slot: self.rename_eq(s))
             name_row.addWidget(rename)
+            name_from_file = QPushButton('Name from file…')
+            name_from_file.setToolTip('Read the preset name from an Astro .astroeq file; do not import or change its EQ levels.')
+            name_from_file.clicked.connect(lambda _checked=False, s=slot: self.name_eq_from_file(s))
+            name_row.addWidget(name_from_file)
             box.addLayout(name_row)
             self.eq_name_labels.append(name_label)
             controls = []
@@ -912,6 +916,28 @@ class Window(QMainWindow):
                                 (slot, self.eq_names[index]))
         except (OSError, ValueError) as exc:
             self.notice.setText('Could not rename EQ: ' + str(exc))
+
+    def name_eq_from_file(self, slot):
+        """Assign only the [General] Name from an existing .astroeq file.
+
+        This is NOT Import .astroeq. Do not replace any edited settings,
+        snapshot, or hardware values, including when the file's numeric EQ
+        differs from the slot (e.g. a modified factory preset).
+        """
+        path, _ = QFileDialog.getOpenFileName(self, 'Read name from Astro EQ file', '',
+                                               'Astro EQ (*.astroeq)')
+        if not path:
+            return
+        try:
+            preset_name = a50_names.normalize_name(a50.load_astroeq(path)['name'])
+            updated = list(self.eq_names)
+            updated[slot - 1] = preset_name
+            if updated != self.eq_names:
+                self.commit_eq_names(updated)
+            self.notice.setText('EQ %d named “%s” from file. EQ settings were not changed.' %
+                                (slot, preset_name))
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            self.notice.setText('Could not read preset name: ' + str(exc))
 
     @staticmethod
     def spin(low, high):
