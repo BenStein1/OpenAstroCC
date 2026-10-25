@@ -134,8 +134,27 @@ Revert: delete the copied file and `systemctl --user restart wireplumber`.
 
 To pick which sink is which: `pactl list sinks short` will show
 `...pro-output-0` and `...pro-output-1`. Expectation is 0 = Voice (2ch),
-1 = Game (6ch), inferred from PCM order — verify, and if they're swapped the
-profile is still correct, only the labels in the config comment need swapping.
+1 = Game (6ch) — this is now confirmed by kernel UAC descriptors (`python3
+tools/a50_audio.py`'s `uac_ground_truth()`, reading `/proc/asound/card1/stream0`
+/`stream1` directly, independent of the active profile), not just inferred
+from PCM order. Still worth a quick `pactl list sinks short` check after
+switching — profile-ordering is a strong ALSA/PipeWire convention, not a
+per-device guarantee — but it is no longer a blind guess; if they are swapped
+the profile is still correct, only the labels in the config comment need
+swapping.
+
+**Before running this test, know that it alone will not give you simultaneous
+independent Game+Voice.** This host already runs two pre-existing, non-repo
+`pw-loopback` services (`a50-loopback-game.service`, `a50-loopback-voice.service`
+in `~/.config/systemd/user/`, not part of this repo) that create virtual
+`A50_Game`/`A50_Voice` sinks for app routing. Live `pw-link -l` tracing
+(`tools/a50_audio.py`'s `trace_virtual_routes()`) proves both of those
+*currently* forward into the same single physical sink — switching to
+`pro-audio` does not retarget them. For this test to actually exercise two
+independent USB paths, point apps directly at the new `pro-output-0`/
+`pro-output-1` sinks (or repoint those two services' `target.object`), not at
+the pre-existing `A50_Game`/`A50_Voice` virtual sinks, until/unless those
+services are updated — which is outside this repo.
 
 ## Test 4 — Does the 6-channel Game profile render positionally? (listening)
 

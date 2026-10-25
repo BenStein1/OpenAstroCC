@@ -119,6 +119,27 @@ Continue independent software/UI/protocol work. Physical Game/Voice, Dolby,
 sidetone audibility, mic flip/gate and positional rendering need real tests;
 do not mark100% from mocks, descriptors, or ACKs.
 
+**New root-cause finding (worker Astra-audio-routing, 2026-10-24, read-only, no
+state changed):** live kernel UAC descriptors (`/proc/asound/card1/stream0`/
+`stream1`) confirm the A50 genuinely has two independent USB PCM interfaces --
+hw:1,0 is Voice (2ch 48k out + 1ch 16k mono mic in), hw:1,1 is Game (6ch 48k
+out + 2ch 48k line in) -- independent of any PipeWire profile choice. The
+currently active profile (`output:iec958-stereo+input:mono-fallback`) only
+opens hw:1,0; hw:1,1 is unopened (`Status: Stop`). Separately, live `pw-link
+-l` tracing proves this host's pre-existing, non-repo A50_Game/A50_Voice
+pw-loopback sinks (`~/.config/systemd/user/a50-loopback-{game,voice}.service`,
+not part of this repo) both currently forward into the *same* physical
+`iec958-stereo` sink -- confirmed, not just suspected: their names do not
+reflect independent routing today. `tools/a50_audio.py` now carries both
+proofs (`uac_ground_truth()`, `trace_virtual_routes()`) in its read-only
+`inventory()` output, and `config/51-astro-a50-pro-audio.conf`'s pro-output
+labeling is now stated as confirmed (by PCM order) rather than inferred. None
+of this required or performed a profile switch, service restart, or config
+install. Enabling `pro-audio` is necessary but not sufficient for the two
+existing loopback services to become real Game/Voice paths: their
+`target.object` would also need to point at the new pro-output-0/pro-output-1
+sinks -- that edit is outside this repo and still Ben's call.
+
 ## Next sequence
 
 Software implementation and reversible CLI+GUI verification are done for EQ,

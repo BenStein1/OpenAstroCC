@@ -140,7 +140,44 @@ def backup_checks():
         try: a50_audio.inventory()
         except ValueError: pass
         assert all(call.args[0][2] == 'list' for call in run.call_args_list)
+    # UAC descriptor parser against real /proc/asound/cardN/streamM text shape.
+    sample = ('Interface 2\n  Altset 1\n  Format: S16_LE\nPlayback:\n  Status: Running\n'
+              '    Channels: 2\n    Rates: 48000\n    Channel map: FL FR\n'
+              'Capture:\n  Status: Stop\n    Channels: 1\n    Rates: 16000\n'
+              '    Channel map: MONO\n')
+    parsed_pb = a50_audio._parse_uac_direction(sample, 'Playback')
+    parsed_cap = a50_audio._parse_uac_direction(sample, 'Capture')
+    assert parsed_pb == {'channels': 2, 'rate': 48000, 'channel_map': 'FL FR'}
+    assert parsed_cap == {'channels': 1, 'rate': 16000, 'channel_map': 'MONO'}
+    assert a50_audio._parse_uac_direction('Capture:\n  Status: Stop\n', 'Playback') is None
+    # Live-link independence trace: two virtual sinks sharing node.group must be
+    # flagged as colliding on the same physical destination, not "independent".
+    fake_links = (
+        'alsa_output.x:playback_FL\n'
+        '  |<- output./usr/bin/pw-loopback-1:output_FL\n'
+        '  |<- output./usr/bin/pw-loopback-2:output_FL\n'
+        'output./usr/bin/pw-loopback-1:output_FL\n'
+        '  |-> alsa_output.x:playback_FL\n'
+        'output./usr/bin/pw-loopback-2:output_FL\n'
+        '  |-> alsa_output.x:playback_FL\n')
+    with patch.object(a50_audio.subprocess, 'run') as run:
+        run.return_value.stdout = fake_links
+        trace = a50_audio.trace_virtual_routes([
+            {'name': 'A50_Game', 'properties': {'node.group': '/usr/bin/pw-loopback-1'}},
+            {'name': 'A50_Voice', 'properties': {'node.group': '/usr/bin/pw-loopback-2'}}])
+        assert trace['independent'] is False
+        assert sorted(trace['collisions']['alsa_output.x']) == ['A50_Game', 'A50_Voice']
+        # No sink currently linked anywhere: absence of a collision proves nothing,
+        # so independence must read as unknown, not True.
+        run.return_value.stdout = ''
+        idle = a50_audio.trace_virtual_routes([
+            {'name': 'A50_Game', 'properties': {'node.group': '/usr/bin/pw-loopback-1'}},
+            {'name': 'A50_Voice', 'properties': {'node.group': '/usr/bin/pw-loopback-2'}}])
+        assert idle['independent'] is None
+        run.side_effect = OSError('no pw-link')
+        assert 'error' in a50_audio.trace_virtual_routes([])
     print('audio plan identity/route matching and read-only subprocess checks OK')
+    print('UAC descriptor parse and virtual-route independence trace checks OK')
 
 
 if __name__ == '__main__':

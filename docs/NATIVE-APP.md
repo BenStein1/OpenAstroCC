@@ -59,3 +59,20 @@ executing it. On this host existing virtual A50_Game/A50_Voice sinks coexist
 with the physical IEC958 sink. Their presence does not prove independent USB
 audio. No routes were created or modified by this work. The Device/audio tab
 shows the same live plan. Profile activation remains pending approval.
+
+`inventory()` now also attaches two live, read-only proofs rather than relying
+on presence/absence alone:
+
+- `uac_ground_truth()` reads `/proc/asound/cardN/stream0`/`stream1` directly
+  from the kernel (independent of whichever PipeWire ALSA-card-profile is
+  active) and reports the real channel count/rate/channel-map per USB Audio
+  Class interface. On this host: hw:1,0 is 2ch 48k out + 1ch 16k mono in
+  (Voice), hw:1,1 is 6ch 48k out + 2ch 48k in (Game) -- confirming the
+  topology comment with hardware descriptors, not inference.
+- `trace_virtual_routes()` parses live `pw-link -l` port links to find which
+  physical sink each virtual A50_* sink's audio actually reaches right now,
+  and flags it when two differently-named virtual sinks share one physical
+  destination. On this host it proves the pre-existing (non-repo)
+  A50_Game/A50_Voice pw-loopback sinks both currently forward into the same
+  physical `iec958-stereo` sink -- confirming they are not independent today,
+  not merely noting they might not be.
