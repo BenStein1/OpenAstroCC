@@ -70,11 +70,10 @@ the repo's preserved, git-ignored
 `artifacts/appdata-classic/Astro A50 Wireless/Astro EQ/` and
 `artifacts/appdata-store/ASTRO A50 Wireless/`, plus
 `~/.local/share/astro-a50-linux/presets/`. Additional directories can be
-provided in `ASTRO_A50_EQ_DIRS` (colon-separated on Linux). The original
-Astro binary/preset collection is not redistributed with this GitHub repo;
-on a clean clone with no matching local preset files, the UI correctly shows
-**Preset name: Unnamed**. Custom device EQs likewise stay Unnamed unless
-manually named.
+provided in `ASTRO_A50_EQ_DIRS` (colon-separated on Linux). The five original Astro `.astroeq` text defaults are now included in
+`presets/` by the repository owner; no proprietary Windows app binaries are
+distributed. A custom device EQ that doesn't match any saved file remains
+Unnamed until the user loads or saves a named preset.
 
 **Rename EQ…** stores a user label locally in
 `$XDG_CONFIG_HOME/astro-a50-linux/eq-names.json` (normally
