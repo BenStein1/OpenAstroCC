@@ -74,7 +74,8 @@ def save_names(names):
 def preset_directories():
     root = Path(__file__).resolve().parent.parent
     dirs = [
-        root / "presets",  # Distributable text EQ preset files, separate from ignored Windows app archives.
+        root / "presets",  # Factory defaults.
+        root / "presets/examples",  # Distributable custom example curves.
         root / "artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ",
         root / "artifacts/appdata-classic/Astro A50 Wireless/Astro EQ",
         root / "artifacts/appdata-store/ASTRO A50 Wireless",
@@ -89,8 +90,8 @@ def match_preset_names(document, directories=None):
     """Read existing .astroeq files and identify unambiguous hardware slot matches.
 
     A USB EQ bank contains gains, frequencies and bell widths, not text names.
-    For a match all 13 numeric EQ parameters must agree: gains exactly and
-    frequency/bandwidth to within one hardware unit for quantization tolerance.
+    For a match all 13 numeric EQ parameters must agree: gains/frequencies exactly,
+    widths within 0.01 octave to account for rounded Windows .astroeq text.
     Identical numeric curves with different names are ambiguous and NOT named.
     This performs local file reads only and never modifies device/settings.
     """
@@ -138,8 +139,8 @@ def match_preset_names(document, directories=None):
         matches = {
             name for name, g, f, w in references
             if gains == g
-            and all(abs(a - b) <= 1 for a, b in zip(freqs, f))
-            and all(abs(a - b) <= 1 for a, b in zip(widths, w))
+            and freqs == f
+            and all(abs(a - b) <= 41 for a, b in zip(widths, w))
         }
         identified.append(next(iter(matches)) if len(matches) == 1 else None)
     return (identified + [None] * 3)[:3]
