@@ -13,9 +13,13 @@ dock pages use sliders too. Control semantics and the write path are unchanged.
 The Game/Voice end labels follow the existing label order and are not yet
 confirmed against hardware. Offscreen check: `QT_QPA_PLATFORM=offscreen python3 tools/check_gui.py`.
 
-The Microphone page has **Test sidetone**: it writes only the sidetone level shown
-to the headset's working settings (backup + readback, nothing persisted) so you can
-speak into the mic and hear it. Other unwritten editor edits are reset by the reload.
+The Microphone page has **Test sidetone**. It is a toggle: it writes only the
+sidetone level shown to the headset's working settings (backup + readback, nothing
+persisted) and starts a live peak meter of the A50 mic (`parec` on the `A50_Mic`
+source, falling back to another A50 source) with a "Talking" indicator. While it
+runs, moving the sidetone slider re-applies the level after a short pause, so you
+can leave it open and hear the change. **Stop test** (or closing the app) stops the
+capture. Other unwritten editor edits are reset by the reload after each write.
 
 The app reads three EQ slots, all five frequencies and the three bell bandwidths,
 dock defaults, current battery/charging, hardware balance and selected EQ slot.

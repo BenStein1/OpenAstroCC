@@ -5,8 +5,10 @@ import copy
 import json
 import sys
 from pathlib import Path
+import array
 import math
-from PyQt6.QtCore import QPointF, QRectF, Qt, QThread, QTimer, pyqtSignal
+import subprocess
+from PyQt6.QtCore import QPointF, QProcess, QRectF, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGridLayout, QFormLayout, QLabel, QPushButton, QTabWidget,
@@ -134,6 +136,72 @@ class SliderRow(QWidget):
 
     def setEnabled(self, enabled):
         super().setEnabled(enabled)
+
+
+class LevelMeter(QWidget):
+    """Horizontal peak meter, -60..0 dBFS, with a decaying peak-hold tick."""
+    FLOOR = -60.0
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.level = self.hold = self.FLOOR
+        self.setMinimumHeight(26)
+        self.decay = QTimer(self)
+        self.decay.setInterval(40)
+        self.decay.timeout.connect(self._decay)
+        self.decay.start()
+
+    def push(self, peak):
+        """peak is 0..1 linear full scale."""
+        db = 20 * math.log10(peak) if peak > 0 else self.FLOOR
+        self.level = max(db, self.FLOOR)
+        if self.level >= self.hold:
+            self.hold = self.level
+        self.update()
+
+    def reset(self):
+        self.level = self.hold = self.FLOOR
+        self.update()
+
+    def _decay(self):
+        self.level = max(self.FLOOR, self.level - 2.0)
+        self.hold = max(self.FLOOR, self.hold - 0.4, self.level)
+        self.update()
+
+    def x_of(self, db):
+        return 2 + (self.width() - 4) * (db - self.FLOOR) / -self.FLOOR
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        bar = QRectF(0, 3, self.width(), self.height() - 6)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor('#14161b'))
+        p.drawRoundedRect(bar, 6, 6)
+        if self.level > self.FLOOR:
+            gradient = QLinearGradient(bar.left(), 0, bar.right(), 0)
+            gradient.setColorAt(0, QColor('#3ecf8e'))
+            gradient.setColorAt(0.7, QColor('#3ecf8e'))
+            gradient.setColorAt(0.85, QColor('#ffc247'))
+            gradient.setColorAt(1, QColor('#ff5a4f'))
+            p.setBrush(gradient)
+            p.setClipRect(QRectF(0, 0, self.x_of(self.level), self.height()))
+            p.drawRoundedRect(bar, 6, 6)
+            p.setClipping(False)
+        if self.hold > self.FLOOR:
+            p.setPen(QPen(QColor('#ffffff'), 2))
+            x = self.x_of(self.hold)
+            p.drawLine(QPointF(x, bar.top() + 2), QPointF(x, bar.bottom() - 2))
+        p.end()
+
+
+def pcm_peak(data):
+    """Peak (0..1) of little-endian signed 16-bit mono PCM bytes."""
+    samples = array.array('h')
+    samples.frombytes(data[:len(data) // 2 * 2])
+    if sys.byteorder == 'big':
+        samples.byteswap()
+    return max((abs(v) for v in samples), default=0) / 32768
 
 
 def card(title=None):
@@ -352,6 +420,12 @@ class Window(QMainWindow):
         self.smoke = smoke
         self.busy = False
         self.done_message = None
+        self.testing = False
+        self.capture = None
+        self.sidetone_timer = QTimer(self)
+        self.sidetone_timer.setSingleShot(True)
+        self.sidetone_timer.setInterval(350)
+        self.sidetone_timer.timeout.connect(self.apply_sidetone)
         self.connected = False
         self.identity = None
         self.audio = None
@@ -487,6 +561,7 @@ class Window(QMainWindow):
         for name, label in [('microphone_output', 'Microphone output'), ('sidetone', 'Onboard sidetone')]:
             self.sliders[name] = SliderRow(0, 100, '%d%%')
             form.addRow(label, self.sliders[name])
+        self.sidetone = self.sliders['sidetone']
         self.mic_eq = QComboBox()
         self.mic_eq.addItems(a50.MIC_EQ_NAMES)
         self.noise_gate = QComboBox()
@@ -497,12 +572,19 @@ class Window(QMainWindow):
         test_row = QHBoxLayout()
         self.sidetone_test = QPushButton('Test sidetone')
         self.sidetone_test.setObjectName('primary')
-        self.sidetone_test.setToolTip('Writes only the sidetone level to the headset so you can hear it')
-        self.sidetone_test.clicked.connect(self.test_sidetone)
+        self.sidetone_test.setToolTip('Sets the sidetone level on the headset and shows your mic level')
+        self.sidetone_test.clicked.connect(self.toggle_sidetone_test)
         test_row.addWidget(self.sidetone_test)
-        test_row.addWidget(hint('Writes the sidetone level above to the headset (working setting only, nothing '
-                                'is saved), then speak into the mic to hear yourself at that level.'), 1)
+        self.meter = LevelMeter()
+        test_row.addWidget(self.meter, 1)
+        self.talking = QLabel('')
+        self.talking.setObjectName('value')
+        self.talking.setMinimumWidth(110)
+        test_row.addWidget(self.talking)
         inner.addLayout(test_row)
+        inner.addWidget(hint('Test sidetone writes the level above to the headset (working setting only, nothing '
+                             'is saved) and shows a live meter of the A50 mic. Leave it running and move the '
+                             'slider to hear the change as you talk.'))
         inner.addWidget(hint('Onboard controls; listening and recording confirmation remain pending.'))
         box.addWidget(frame)
         box.addStretch(1)
@@ -544,7 +626,7 @@ class Window(QMainWindow):
             button.setEnabled(not self.busy and (name == 'Refresh / reconnect' or self.document is not None))
         self.buttons['Write working settings'].setEnabled(not self.busy and self.connected and not self.offline)
         self.buttons['Save to headset'].setEnabled(not self.busy and self.connected and not self.offline)
-        self.sidetone_test.setEnabled(not self.busy and self.connected and not self.offline
+        self.sidetone_test.setEnabled(self.testing or not self.busy and self.connected and not self.offline
                                       and self.document is not None and self.document['schema'] == 'astro-a50-gen3-v2')
         self.tabs.setEnabled(not self.busy and self.document is not None)
 
@@ -674,12 +756,76 @@ class Window(QMainWindow):
                 return client.status()
         self.run(read, self.show_status)
 
-    def test_sidetone(self):
+    def toggle_sidetone_test(self):
+        if self.testing:
+            self.stop_sidetone_test()
+            return
+        source = self.mic_source()
+        if not source:
+            self.notice.setText('Test sidetone: no A50 microphone source found in PipeWire/PulseAudio; '
+                                'sidetone is still written but no meter is available.')
+        else:
+            self.capture = QProcess(self)
+            self.capture.readyReadStandardOutput.connect(self.capture_ready)
+            self.capture.errorOccurred.connect(lambda _e: self.stop_sidetone_test(
+                'Test sidetone: could not start parec (is pulseaudio-utils/pipewire-pulse installed?).'))
+            self.capture.start('parec', ['--device=' + source, '--format=s16le', '--rate=16000',
+                                         '--channels=1', '--latency-msec=40'])
+        self.testing = True
+        self.sidetone_test.setText('Stop test')
+        self.sidetone.valueChanged.connect(self.sidetone_edited)
+        self.apply_sidetone()
+
+    @staticmethod
+    def mic_source():
+        try:
+            sources = json.loads(subprocess.run(['pactl', '--format=json', 'list', 'sources'], check=True,
+                                                capture_output=True, text=True, timeout=5).stdout)
+        except (OSError, subprocess.SubprocessError, ValueError):
+            return None
+        names = [x['name'] for x in sources if not x['name'].endswith('.monitor')]
+        for name in names:
+            if name == 'A50_Mic':
+                return name
+        return next((n for n in names if 'Astro' in n or 'A50' in n), None)
+
+    def capture_ready(self):
+        peak = pcm_peak(bytes(self.capture.readAllStandardOutput()))
+        self.meter.push(peak)
+        self.talking.setText('● Talking' if peak > 0.02 else '')
+        self.talking.setStyleSheet('color: #3ecf8e;' if peak > 0.02 else '')
+
+    def stop_sidetone_test(self, message=None):
+        if self.capture is not None:
+            capture, self.capture = self.capture, None
+            capture.blockSignals(True)
+            capture.kill()
+            capture.waitForFinished(500)
+            capture.deleteLater()
+        if self.testing:
+            self.sidetone.valueChanged.disconnect(self.sidetone_edited)
+        self.testing = False
+        self.sidetone_timer.stop()
+        self.sidetone_test.setText('Test sidetone')
+        self.meter.reset()
+        self.talking.setText('')
+        if message:
+            self.notice.setText(message)
+        self.update_enabled()
+
+    def sidetone_edited(self, _value):
+        self.sidetone_timer.start()
+
+    def apply_sidetone(self):
+        if not self.testing:
+            return
+        if self.busy or not self.connected:
+            self.sidetone_timer.start()
+            return
+        level = self.sidetone.value()
         target = copy.deepcopy(self.document)
-        target['sliders']['sidetone']['working'] = self.sliders['sidetone'].value()
-        level = self.sliders['sidetone'].value()
-        self.apply(target, 'Sidetone set to %d%%. Speak into the mic to hear it; other unwritten edits were reset. '
-                           'Readback verified, not saved to the headset.' % level)
+        target['sliders']['sidetone']['working'] = level
+        self.apply(target, 'Sidetone set to %d%% (test running; nothing saved). Talk to hear it.' % level)
 
     def apply(self, target=None, message=None):
         self.done_message = message
@@ -765,6 +911,7 @@ class Window(QMainWindow):
             self.notice.setText(str(exc))
 
     def closeEvent(self, event):
+        self.stop_sidetone_test()
         if self.jobs:
             self.notice.setText('Finishing the current device transaction before closing.')
             event.ignore()
