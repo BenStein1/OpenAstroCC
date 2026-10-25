@@ -18,16 +18,16 @@ python3 -m PyInstaller \
     --noconfirm --clean --onedir --windowed \
     --contents-directory _internal \
     --name astro-a50-linux \
-    --paths tools \
+    --paths "$root/tools" \
     --hidden-import a50_setup \
-    --add-data presets:presets \
-    --add-data docs/THIRD_PARTY_NOTICES.md:docs \
-    --add-data LICENSE:licenses \
-    --add-data licenses:licenses \
-    --distpath dist/pyinstaller \
-    --workpath build/pyinstaller \
-    --specpath build \
-    tools/a50_gui.py
+    --add-data "$root/presets:presets" \
+    --add-data "$root/docs/THIRD_PARTY_NOTICES.md:docs" \
+    --add-data "$root/LICENSE:licenses" \
+    --add-data "$root/licenses:licenses" \
+    --distpath "$root/dist/pyinstaller" \
+    --workpath "$root/build/pyinstaller" \
+    --specpath "$root/build" \
+    "$root/tools/a50_gui.py"
 
 rm -rf "$appdir"
 mkdir -p "$appdir/usr/lib" "$appdir/usr/share/doc/astro-a50-linux" \
