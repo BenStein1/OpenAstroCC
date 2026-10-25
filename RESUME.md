@@ -1,5 +1,65 @@
 # OpenAstroCC — current verification checkpoint (2026-10-25)
 
+## AppImageHub distribution acceptance — 2026-10-25
+
+**v0.1.1 AppImageHub test PASSED** after the Qt X11/XCB dependency fix
+in OpenAstroCC PR #28. This was an offline, no-headset, 800x600 Xvfb
+test: https://github.com/AppImage/appimage.github.io/pull/10771 and
+https://github.com/AppImage/appimage.github.io/actions/runs/40196368462.
+AppImageHub PR #10771 is still under upstream review; **do not mistake
+the warnings below for a failed test.** Reported glibc requirement is 2.35,
+expected from the Ubuntu 22.04 build. The Node.js 20/24 deprecation warning
+belongs to their GitHub Actions infrastructure, not OpenAstroCC.
+
+**Screenshot issue — needs fixing before we promote the listing:**
+https://github.com/user-attachments/assets/82baa60d-3408-4945-a969-b1ae8c693171
+
+- **P1: Bad layout at 800x600.** Their worker actively shrinks large windows
+  to fit its 800x600 virtual display. Our normal window opens at 940x760.
+  In the captured result, the toolbar's left edge is clipped, EQ vertical
+  sliders overlap the frequency/Q controls, labels overprint other widgets,
+  and the editor's lower area is cut off. This is a *real small-viewport
+  responsiveness problem*, not just a screenshot preference.
+  Prefer a scrollable EQ pane, appropriate minimum sizes and responsive
+  stacking; test in a real 800x600 Xvfb Qt/X11 window with no A50 attached,
+  check for overlapping/clipped controls, and preserve the excellent current
+  layout at normal desktop sizes. Avoid silently squeezing sliders until they
+  overlap. Add a regression check to GitHub Actions.
+- **P2: No-device appearance.** The test's "A50 control interface not found"
+  is an **expected condition** because its sandbox has no headset and no
+  network access. The app correctly **stays open** and disables dangerous
+  controls. But "A50 operation failed" looks like a crash to someone
+  evaluating the screenshot. Present a friendly *Disconnected / Connect an
+  Astro A50 Gen 3 to configure it* state while keeping the app functional,
+  read-only and safe with no hardware. Do not pretend a hardware connection
+  exists merely to pass the screenshot test.
+- **P2: Dark theme warning.** AppImageHub prefers a light theme when its
+  headless system has no dark-mode preference. OpenAstroCC is dark by
+  default. Evaluate respecting system color-scheme preference while
+  offering a persistent explicit dark-mode setting (so Ben's preferred
+  dark experience is preserved). This is a **warning, not a failure**;
+  do not rush a theme redesign just to satisfy the catalog.
+- **P3: Missing AppImageUpdate integration.** Their test recommends embedding
+  update metadata using appimagetool's `-u` option and shipping a matching
+  `.zsync` file. Optional enhancement: integrate into the tagged release
+  build, link updates to the GitHub Releases asset, validate the `.zsync`
+  matches the AppImage, and document supported update behavior. Do not
+  present auto-updates as active until implemented and tested.
+
+**Better catalog screenshot:** AppImageHub's README describes using AppStream
+metainfo with an upstream-provided screenshot (also see their `/appstream`
+PR comment guidance). Consider reusing the actual, existing *connected*
+OpenAstroCC screenshot from `docs/assets/openastrocc-main.png` as a truthful
+app showcase; verify their metadata expectations and keep screenshots updated
+as the UI changes. The AppStream image is an *addition*, not a substitute
+for fixing layout on smaller screens.
+
+**No changes to headset, audio routing or the running application were
+requested by this checkpoint.** Package/discovery follow-ups can wait; the
+main functionality is working and the AppImageHub validation already passed.
+
+---
+
 **Latest user-confirmed status.** This checkpoint supersedes older "pending" or
 "not applied" notes below. This is a report from Ben's live hardware use, not
 a new automated probe or change to USB, audio services, or settings.
