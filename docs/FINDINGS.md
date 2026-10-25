@@ -660,3 +660,126 @@ Ghidra 12.1.4, target SHA-256 `991e5581…2eb2dcf`, analysis profile digest
 Ghidra's own stated limits apply: only decompiler output, only Ghidra-defined
 strings, and an empty search does not prove text is absent. Pseudocode is not
 original source.
+
+## 16. Current UI (0x72) field_id1: exhaustive consumer trace — resolved as dead data
+
+Worker: Astra-status-trace. Date: 2026-10-24. Scope: resolve the long-open
+`0x72` `field_id1` unknown and determine whether Dolby, mic-flip/mute, or
+headset-link are exposed by any already-bound status path. **[STATIC]** only;
+no hardware touched, no writes, no toggles.
+
+### 16.1 Ground-truth byte alignment (corrects the offset framing, not the bindings)
+
+Decoding the one retained full `0x72` RX capture
+(`evidence/a50-baseline-capture.json`, TX `02 72 41 01`, RX
+`02 02 50 02 01 01 00 02 02 01 00 02 03 80 00 02 04 64 00 ...`) against the
+decompiled parser `FUN_0048a210` (0x48a210) proves the exact byte layout.
+Stripping the leading `02` (device report-id byte), the client's `pcVar8`
+buffer starts at RX[1]. The four `[tag 02, field_id, value, 00]` groups then
+sit at buffer offsets 2/6/10/14 (matching the four `*(undefined4*)(pcVar8+N)`
+reads in `FUN_0048a210` exactly), with each group's **value** byte landing 2
+bytes into its own group (the `>>0x10` shift every consumer applies). Decoded:
+`field_id1=01 value=01` (constant), `field_id2=02 value=01` (EQ slot 1),
+`field_id3=03 value=0x80=128` (balance center), `field_id4=04 value=0x64=100`
+(battery 100%, charging bit clear). This reproduces every existing binding in
+`docs/A50-PROTOCOL.md` exactly and is **[STATIC]**+**[HW]**-consistent (the
+capture was taken on real hardware); it does not change any previously
+published semantics, only nails the exact byte math behind them.
+
+### 16.2 FUN_0048a210 is the sole writer of field_id1's cache slot
+
+`FUN_0048a210` (seed address, called with `ECX = <A50 instance>+0x3c8`) sends
+`0x72`, validates status via `FUN_00490620`, and on success writes the four
+raw 32-bit groups verbatim into its own object at `+0x2c/+0x30/+0x34/+0x38`
+(`field_id1→+0x2c`, EQ`→+0x30`, balance`→+0x34`, battery`→+0x38`). This is the
+**only** place in the binary that writes `+0x2c`.
+
+### 16.3 Exhaustive callee enumeration proves zero consumers of +0x2c
+
+- `procedure_callers(0x4a57e0)` (the UI change-notification dispatcher) returns
+  exactly 10 call sites in the whole binary: `0x4785f0, 0x478d10, 0x47a2e0,
+  0x4837f0, 0x4838c0, 0x483990, 0x483a50, 0x484860, 0x4849c0, 0x48afa0`. Every
+  one of them was decompiled. Collectively they dispatch notification types
+  `2, 3, 4, 5, 6` only. **No caller anywhere in the binary dispatches type 1.**
+  This rules out a "connection/link flag" notification path for field_id1 by
+  direct enumeration, not absence of search.
+- `FUN_00483a50` (0x483a50) — the proven A50 Current-UI status handler (called
+  from `0x4d35a0`, confirmed in the prior worker's dossier) — has exactly
+  three callees that read the parsed cache: `FUN_00488540` (EQ, reads cache
+  `+0x30`), `FUN_00488790` (battery/charging, reads `+0x38`), `FUN_00488950`
+  (balance, reads `+0x34`). All three were decompiled (0x488540/790/950) and
+  their extraction math (`byte(word>>0x10)`, clamped against
+  `FUN_00485710`'s bounds table) was traced end to end and matches the
+  ground-truth values in §16.1 exactly. **There is no fourth getter call
+  anywhere in this function's body.**
+- `procedure_callers(0x48a210)` returns exactly three call sites total:
+  `0x483a50` (the dispatcher above), `0x485fd0` ("initializing headset"), and
+  `0x4862b0` ("initializing mediator"). Both init routines were fully
+  decompiled. `0x485fd0` only consumes the EQ-slot cache (`+0xc =
+  *(this+0x194)`, i.e. `FUN_00488540`'s output). `0x4862b0` duplicates the
+  balance/battery bit-extraction inline to seed its own mediator defaults
+  (`+0x18/+0x1c/+0x20`) but never touches `+0x2c`. **Neither reads
+  field_id1.**
+
+Across all three call sites of the one function that ever writes `+0x2c`, and
+across all ten call sites of the one function that ever raises a UI
+change-notification for this object, zero code paths read or branch on
+field_id1's value. This is a closed, exhaustive proof over the entire call
+graph reachable from the Current-UI parser, not an absence-of-evidence
+argument: **field_id1 is parsed, cached, and never consumed anywhere in this
+binary.** It cannot be given a feature label (Dolby/connection/link/anything
+else) because the shipped Windows client itself does not interpret it — there
+is no "what the app calls it" to recover. Resolving its real-world meaning now
+requires either Astro's own firmware/protocol documentation (not shipped
+here) or a live toggle test with the field held under observation while
+Dolby/mic-flip/disconnect are each exercised, which needs Ben and is out of
+scope for a static-only pass.
+
+### 16.4 Dolby / mic-flip-mute / headset-link: no bound status path exists
+
+`search_strings` (regex, case-insensitive) for `dolby|flip|headset link|
+mic.?mute|link status` across the binary's defined string inventory returned
+**zero matches**. Combined with the opcode inventory already enumerated across
+this project (`0x69/0x63` gain, `0x70/0x6f` coefficients, `0x72` Current UI,
+`0x77/0x73` default balance, `0x79/0x75` brightness, `0x7a/0x76` alert,
+`0x6b` default mode, `0x78` accel timeout, `0x7b/0x71` mic EQ, `0x68/0x62`
+slider, `0x6a/0x64` noise gate, `0x03/0x83` identity, `0x61` sync) and the
+exhaustive getter/notify enumeration in §16.3, no already-bound status read in
+this client corresponds to Dolby, mic-flip/mute, or headset-link. This is a
+bounded negative result (absence across every status path this project has
+already identified and bound), not proof the device lacks these features or
+that no other undiscovered opcode carries them — Qt builds commonly
+externalize UI strings to `.qm`/`.ts` resources outside the EXE, so the empty
+string search is corroborating, not dispositive, evidence on its own.
+
+### 16.5 Evidence IDs
+
+Ghidra 12.1.4, target SHA-256 `991e5581…2eb2dcf`, analysis profile digest
+`4f6212bfe31448a7b96743a449e91c35890105cedd34e1d9951e9467d284e0a5`, snapshot
+import `artifacts/analysis/a50-root-snapshot.json`.
+
+| Evidence ID | Operation |
+|---|---|
+| `ev_b74b3965eac8936c52cfe1e3e9b5a73607cd2771467fe810e3263e657a40df66` | callers of `0x4a57e0` (10 sites, types 2-6 only) |
+| `ev_a12b07d9c350e1716fd1f281a76f55dbe56f21af764cf4dc3564dbbd369bef1a` | pseudocode `0x483990` (type4 dispatch) |
+| `ev_4d7c8b18d1686cdc68ed6c0d566944af1accef7b81f9c35f8207b80ab2bd4466` | pseudocode `0x4838c0` (type3 dispatch) |
+| `ev_9a3142dbb05f138d24d14c3456a60a46889ea518fd3daaa6a035430266f90ce5` | pseudocode `0x4837f0` (type2 dispatch) |
+| `ev_2b0c4dc75a59c40d403c1394cab314419d17a03aa46f64ca13d26a61ff95154f` | pseudocode `0x484860` (type5/6 dispatch) |
+| `ev_262fb8fd1ca5ee7818220912bccba5a2e816e1f7ef847eb4f4fb0bbeaea40d8e` | pseudocode `0x4849c0` (type5/6 dispatch) |
+| `ev_f0397bc9e0a8bc773d6aa4823ebddaf7a881ea10f04c83eef18c68926ad9e071` | pseudocode `0x48afa0` (type2 dispatch) |
+| `ev_b3908eb3c089d569032981f097fa1746dd0774167257d0fcfc48d1ce70331f79` | pseudocode `0x4785f0` (type2/3 dispatch) |
+| `ev_d65866ee9ae850c3079f342fcd0d75e50bc962bd5fdd0975d50c4cd3e680853d` | pseudocode `0x478d10` (type5/6 dispatch) |
+| `ev_83c9cc0d0edb5b63394cdaf28b11af456d7ee4012718276955b4278905c95988` | pseudocode `0x47a2e0` (type6 dispatch) |
+| `ev_874853f5222cad9c597f172be75b31a95341f94dbf806f4e7d776c6d79211ca4` | pseudocode `0x48a210` (0x72 send/parse, writes cache+0x2c/0x30/0x34/0x38) |
+| `ev_4cf2fc5cbd1e2318925e255e9875602142b37b9b8e1377b0c9d0f3f6220bf436` | pseudocode `0x488540` (EQ getter, reads cache+0x30) |
+| `ev_54362067dbdc53f9307ea8fa03d96ec57e464e2c59b9698fcad0c80829ced43e` | pseudocode `0x488790` (battery/charging getter, reads cache+0x38) |
+| `ev_ed50a7f6213b8250dac0e661dfc20f61bfbbde218135e25c8a76ece56a626c56` | pseudocode `0x488950` (balance getter, reads cache+0x34) |
+| `ev_f86947a1d3e4be65f3e1352e0b42b7d2b0dc2f5bcdc0d7f13502e030d0376be0` | callers of `0x48a210` (3 sites total) |
+| `ev_c733c446cf4694fce4bf5b91ef27d0b9bf1629a13ce0d0d7d69e381f20433bb6` | pseudocode `0x485fd0` (headset init, consumes EQ cache only) |
+| `ev_d97d3ec7214a625d046f7c4756ae4db675621842a5a66a5b0e62f08d875cd888` | pseudocode `0x4862b0` (mediator init, inlines balance/battery, never +0x2c) |
+| `ev_2908897f1e5a031211266d15f3ee744dc2ab76a77ae8c3d1523af52b399aa0e3` | search_strings `dolby\|flip\|headset link\|mic.?mute\|link status` (zero matches) |
+
+Limitations carried from Ghidra/REA apply as stated in §15: pseudocode is
+decompiler output, not source; an empty string search does not prove text is
+absent (resources may be external); only resolved (non-indirect) call edges
+are enumerated by `procedure_callers`.
