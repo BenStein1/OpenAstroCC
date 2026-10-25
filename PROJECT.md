@@ -107,7 +107,7 @@ and [[docs/HARDWARE-TESTS]] for physical tests. All progress is local to
 - [ ] Map remaining opcodes and settings bounds; trace the sibling `0x70`/{slot,band} coefficient read noted in docs/A50-PROTOCOL.md.
 - [ ] Implement and exercise verified identity/status/settings queries on the headset.
 - [ ] Implement verified settings writes and export/import of device settings.
-- [ ] Test independent Game/Voice playback and the physical balance control.
+- [x] Test independent Game/Voice playback and the physical balance control (2026-10-24, docs/HARDWARE-TESTS.md).
 - [ ] Validate onboard sidetone, EQ changes, microphone controls and remaining documented settings.
 - [ ] Validate reconnect/reboot behavior and any persistent audio configuration.
 
@@ -141,10 +141,18 @@ decoded into two 5-byte banks (unsigned byte − 12). Full TX/RX hex in
 `evidence/a50-eq-read-slot1.json`. Bank A/B semantics are not yet claimed.
 There were no intentional settings writes.
 
-The active PipeWire profile exposes one sink. `pro-audio` advertises two sinks
-and two sources, making it a promising routing fix. **It has not been applied
-or verified with playback.** A profile-change approval question is pending;
-elapsed time does not grant approval. No config files or services were changed.
+**Superseded (2026-10-24):** `pro-audio` is approved, active, and physically
+verified (separate Game/Voice playback, hardware balance, Dolby toggle; see
+docs/HARDWARE-TESTS.md). Its raw channel map (`aux0..auxN`) is not
+surround-recognisable by apps on its own; `config/15-astro-a50-remap.conf`
+layers `module-remap-sink`/`module-remap-source` on top to expose
+`A50 Game 5.1` (FL/FR/FC/LFE/RL/RR), `A50 Voice`, and `A50 Mic` with correct
+channel maps, verified end-to-end with SDL2 (see README.md and
+artifacts/surround-integration/). Both are installed under
+`~/.config/wireplumber/wireplumber.conf.d/` and
+`~/.config/pipewire/pipewire-pulse.conf.d/` and were also applied live without
+a service restart. The two old `a50-loopback-{game,voice}.service` units are
+disabled.
 
 A passive 12-second idle capture received no reports. This establishes only
 that no unsolicited reports were observed during that interval; initialization,

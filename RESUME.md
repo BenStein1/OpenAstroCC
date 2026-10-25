@@ -1,7 +1,71 @@
 # Resume after context clear
 
-Checkpoint: 2026-10-24 (updated by worker Astra-finish-sonnet, Claude/Sonnet).
+Checkpoint: 2026-10-24 (updated by worker Astra-surround-integration, Claude/Sonnet).
 **Read this before changing anything or dispatching work.**
+
+## Normal-game 5.1 surround — DONE, do not repeat
+
+Ben explicitly said the prior physical Game/Voice/Dolby listening test (below)
+only proved the hardware *could* work, not that games would actually get a
+surround output from it — true, because `pro-audio`'s raw channel map on
+pro-output-1 is `aux0..aux5`, which PulseAudio-introspecting apps (SDL2, most
+games) don't recognise as 5.1 and fall back to stereo on.
+
+Fixed with PipeWire-pulse's built-in (no new dependency) `module-remap-sink`/
+`module-remap-source`: `config/15-astro-a50-remap.conf` exposes `A50 Game 5.1`
+(FL/FR/FC/LFE/RL/RR, 6ch), `A50 Voice` (FL/FR, 2ch), `A50 Mic` (MONO, 1ch),
+each a 1:1 passthrough onto the real pro-output-0/1 / pro-input-0 nodes (no
+mixing, no added latency). Installed to
+`~/.config/pipewire/pipewire-pulse.conf.d/` and also applied live via
+`pactl load-module` (exact commands in
+`artifacts/surround-integration/apply-live.sh`) — **no PipeWire/WirePlumber
+service was restarted**; module-remap-sink/source load and unload hot.
+`config/51-astro-a50-pro-audio.conf` (the pro-audio profile pin) is now also
+installed to `~/.config/wireplumber/wireplumber.conf.d/` for reboot
+persistence, but that part only takes effect on WirePlumber's next natural
+restart — not forced here.
+
+Verified, not just configured:
+- `pw-link -l`: `A50_Game_51`'s 6 output ports are linked straight through to
+  `pro-output-1`'s 6 physical playback ports, same order (AUX0→AUX0, etc).
+- SDL2 (`artifacts/surround-integration/sdl_probe.c`, compiled against the
+  already-installed `libsdl2-dev`), run under **both** `SDL_AUDIODRIVER=pulseaudio`
+  and `SDL_AUDIODRIVER=pipewire`: enumerates `A50 Game 5.1` by name and
+  negotiates `channels=6` when requesting a 5.1 spec. Logs:
+  `artifacts/surround-integration/sdl-{pulse,pipewire}-probe.log`. The device
+  was opened paused and never unpaused — silent, no audible test tone, per
+  this worker's no-audible-sound constraint.
+- `tools/a50_audio.py --verify` (new `remap_status()`): asserts all three
+  remap nodes exist with the exact expected channel map; exits 1 if any are
+  missing/wrong (tested both ways: unloaded `A50_Voice` live, confirmed exit 1,
+  reloaded it, confirmed exit 0 again).
+- System default sink/source confirmed unchanged (`pactl get-default-sink`/
+  `-source` still Audioengine speakers / webcam mic) — these are explicit-select
+  devices, not a system-wide default change.
+
+Disabled (already stopped by Ben; now also `systemctl --user disable`d so they
+don't re-enable on next boot): `a50-loopback-game.service`,
+`a50-loopback-voice.service`. `~/.config/pipewire/pipewire.conf.d/a50-virtual-sinks.disabled`
+left alone (already inert by filename, kept as backup per prior instruction).
+
+**One remaining manual step, not applied here (needs Ben's sudo + a plasmashell
+restart, both outside this worker's scope):** Ben has a real, local, diverted
+KDE Plasma volume-applet hide list at
+`/usr/lib/x86_64-linux-gnu/qt6/qml/org/kde/plasma/private/volume/PulseObjectFilterModel.qml`
+(installed via `dpkg-divert`, original alongside as `.qml.distrib` — this is
+the "existing hide config" Ben referred to; it was real, just not under
+`~/.config`, which is why earlier scoped searches of wireplumber/pipewire/pulse
+dotfiles didn't find it). It currently hides the NVIDIA HDMI clutter sinks,
+the EasyEffects sink, and the old single-sink A50 `iec958-stereo` output
+(stale now that pro-audio is active). A reviewable diff that additionally
+hides the raw `pro-output-0`/`pro-output-1` A50 nodes and the new `A50_Voice`
+chat sink — leaving `A50 Game 5.1` as the one visible A50 output in the tray,
+with Voice still fully usable by apps that target it by name — is at
+`artifacts/surround-integration/PulseObjectFilterModel.qml.diff` (before/after
+full files alongside it). Applying it needs `sudo cp` over that root-owned
+file and a plasmashell restart/logout to pick up the QML change; this is
+cosmetic only (per Ben's own comment in the file) and does not block surround
+actually working.
 
 ## Mic/stream integration — VERIFIED, do not repeat
 
@@ -152,6 +216,8 @@ What's left:
 
 3. **Software-side Dolby/mic-flip/headset-link status mapping:** Physical Dolby toggle confirmed functional by Ben's listening comparison. Software status semantics remain unresolved; `0x72` field_id1 is not a proven Dolby/mute/link indicator. Further static analysis or correlated live interaction can investigate this.
 
-4. **Per-app stream routing:** Profile switch to pro-audio is now approved and tested. Ben stopped his pre-existing external Game/Voice loopback services; leave them stopped. Before that shutdown, both forwarded to the same physical Voice sink. Normal application/default routing has not been changed; the system default remains Audioengine. Any reuse of those services needs separate review of their target paths.
+4. **Per-app stream routing / surround — DONE**, see "Normal-game 5.1 surround" above. The old external Game/Voice loopback services are `disabled` (were already stopped). Normal system-default routing is unchanged; Audioengine remains the default sink, A50 devices are explicit-select only.
 
-5. **Config installation/autostart/reboot/WirePlumber persistence:** Candidate `config/51-astro-a50-pro-audio.conf` prepared; profile switch tested live without config install. Persistence (survive reboot) untested. Installation and verification is user-driven unless explicitly requested.
+5. **Config installation/reboot persistence — installed, restart-to-take-effect untested.** `config/51-astro-a50-pro-audio.conf` and `config/15-astro-a50-remap.conf` are both now installed under `~/.config/wireplumber/wireplumber.conf.d/` and `~/.config/pipewire/pipewire-pulse.conf.d/` respectively, and are also live-applied right now (hot, via `pactl`/already-active profile). Neither WirePlumber nor pipewire-pulse was restarted to test that the installed files alone (fresh process start, no prior `pactl` commands) reproduce the same state — that needs an actual logout/reboot or an explicit restart Ben approves.
+
+6. **KDE tray hide-list — reviewable diff prepared, not applied.** See "Normal-game 5.1 surround" above: `artifacts/surround-integration/PulseObjectFilterModel.qml.diff` against Ben's real, local, dpkg-diverted `PulseObjectFilterModel.qml`. Needs Ben's sudo + a plasmashell restart/logout; cosmetic only.

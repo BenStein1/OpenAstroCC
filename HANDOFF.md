@@ -234,17 +234,28 @@ tracing the initialization/query paths.
    still require listening and interaction. Capture low-volume test audio only
    after agreeing on a live playback test.
 
-## Audio approval and unverified configuration
+## Audio: surround integration — DONE (2026-10-24, superseded prior pending note)
 
-The only active profile observed was
-`output:iec958-stereo+input:mono-fallback`. `pro-audio` advertises two sinks and
-two sources. A question asking permission to switch the live profile was sent;
-**no answer/approval has arrived**. Do not assume approval after a context reset.
-The proposed switch and restore commands are in docs/HARDWARE-TESTS.md §3a.
-No service restart or dotfile/config installation is needed for that test.
-Persistent WirePlumber config remains an unvalidated candidate artifact.
-The old test PCM named `pro-audio:CARD=...` was not established as an ALSA PCM;
-validate a real targeted playback route before providing/running a test command.
+`pro-audio` is approved, active, and physically verified (docs/HARDWARE-TESTS.md).
+Its raw channel map was `aux0..auxN` — not recognised as surround by apps.
+Fixed with `module-remap-sink`/`module-remap-source` (`config/15-astro-a50-remap.conf`,
+installed to `~/.config/pipewire/pipewire-pulse.conf.d/`) exposing `A50 Game 5.1`
+(FL/FR/FC/LFE/RL/RR), `A50 Voice` (stereo), `A50 Mic` (mono). Applied live with
+`pactl load-module` (no PipeWire/WirePlumber restart; see
+`artifacts/surround-integration/apply-live.sh`). Verified with SDL2
+(`artifacts/surround-integration/sdl_probe.c` + `.log`s): both the pulseaudio
+and pipewire drivers enumerate `A50 Game 5.1` and negotiate 6 channels against
+it, silently (device opened paused, never unpaused). `pw-link -l` confirms the
+6 ports are 1:1-linked straight through to `pro-output-1`'s physical playback
+ports, no shuffling. `tools/a50_audio.py --verify` is the repeatable check.
+The two old `a50-loopback-{game,voice}.service` units (both already stopped by
+Ben) are now `disabled`. System default sink/source are untouched (Audioengine
+speakers / webcam mic). Still open: KDE's volume-applet hide list
+(`PulseObjectFilterModel.qml`, root-owned + dpkg-diverted) would need Ben's
+sudo and a plasmashell restart to actually hide the raw `A50 Pro`/`A50 Pro 1`
+nodes and `A50_Voice` from the tray in favor of `A50 Game 5.1` — a reviewable
+diff is prepared at `artifacts/surround-integration/PulseObjectFilterModel.qml.diff`
+but not applied (outside this worker's scope: needs root + a UI restart).
 
 ## Worker recovery and execution blockers
 

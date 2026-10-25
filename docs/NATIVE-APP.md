@@ -55,13 +55,10 @@ installed. Use docs/FEATURES.md for precise acceptance gaps.
 `python3 tools/a50_audio.py` prepares a read-only plan from the current
 PipeWire card/sink/source JSON. It validates USB identity, lists physical and
 virtual routes separately, and prints exact switch/restore argv without
-executing it. On this host existing virtual A50_Game/A50_Voice sinks coexist
-with the physical IEC958 sink. Their presence does not prove independent USB
-audio. No routes were created or modified by this work. The Device/audio tab
-shows the same live plan. Profile activation remains pending approval.
+executing it. The Device/audio tab shows the same live plan.
 
-`inventory()` now also attaches two live, read-only proofs rather than relying
-on presence/absence alone:
+`inventory()` attaches several live, read-only proofs rather than relying on
+presence/absence alone:
 
 - `uac_ground_truth()` reads `/proc/asound/cardN/stream0`/`stream1` directly
   from the kernel (independent of whichever PipeWire ALSA-card-profile is
@@ -72,7 +69,16 @@ on presence/absence alone:
 - `trace_virtual_routes()` parses live `pw-link -l` port links to find which
   physical sink each virtual A50_* sink's audio actually reaches right now,
   and flags it when two differently-named virtual sinks share one physical
-  destination. On this host it proves the pre-existing (non-repo)
-  A50_Game/A50_Voice pw-loopback sinks both currently forward into the same
-  physical `iec958-stereo` sink -- confirming they are not independent today,
-  not merely noting they might not be.
+  destination. **Superseded (2026-10-24):** this previously caught Ben's old,
+  now-`disabled` `a50-loopback-{game,voice}.service` units both forwarding
+  into the same physical `iec958-stereo` sink under the old single-sink
+  profile. `pro-audio` plus the new `A50_Game_51`/`A50_Voice`/`A50_Mic` remap
+  nodes (different names, no collision with the old disabled units) replace
+  that setup; see README.md and `remap_status()` below.
+- `remap_status()` (2026-10-24) checks the `module-remap-sink`/
+  `module-remap-source` nodes installed by `config/15-astro-a50-remap.conf`
+  that relabel the A50's raw `aux0..auxN` channels into app-recognisable
+  positions (FL/FR/FC/LFE/RL/RR for Game, FL/FR for Voice, MONO for the mic).
+  `--verify` exits 1 if any are missing or mismapped. SDL2-level enumeration
+  and 6-channel negotiation proof (both pulseaudio and pipewire drivers) is in
+  `artifacts/surround-integration/sdl-*-probe.log`.

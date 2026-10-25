@@ -3,8 +3,19 @@
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 import a50
+
+# Expected channel maps (pactl's Pulse-style names) for the module-remap-sink/
+# source nodes installed by config/15-astro-a50-remap.conf (or
+# artifacts/surround-integration/apply-live.sh), which relabel the A50's raw
+# AUXn channels into positions games/apps recognise.
+REMAP_EXPECTED = {
+    'A50_Game_51': 'front-left,front-right,front-center,lfe,rear-left,rear-right',
+    'A50_Voice': 'front-left,front-right',
+    'A50_Mic': 'mono',
+}
 
 
 def plan(cards, sinks, sources):
@@ -33,10 +44,33 @@ def plan(cards, sinks, sources):
             'active_sinks': routes(sinks), 'active_sources': routes(sources),
             'topology': {'Game': '6ch 48k playback; stereo line capture',
                          'Voice': 'stereo 48k playback; mono 16k microphone'},
-            'approval': 'Profile switching and sounds await Ben’s explicit answer.',
+            'approval': "Ben approved and physically verified pro-audio playback/balance/Dolby "
+                        "(see docs/HARDWARE-TESTS.md); the raw aux0..auxN channel map is not "
+                        "surround-recognisable by apps, fixed by the A50_Game_51/A50_Voice/A50_Mic "
+                        "remap nodes below (config/15-astro-a50-remap.conf).",
             'switch_argv_after_approval': ['pactl', 'set-card-profile', card['name'], 'pro-audio'],
             'restore_argv_after_approval': ['pactl', 'set-card-profile', card['name'], card['active_profile']],
-            'verification': 'Route names/channel maps after switching and physical listening remain unverified.'}
+            'verification': 'Raw route channel maps and physical Game/Voice/Dolby listening are verified; '
+                             'see remap_status for the app-facing 5.1/mono channel maps.'}
+
+
+def remap_status(sinks, sources):
+    """Check the module-remap-sink/source nodes that relabel the A50's raw
+    AUXn channels (see REMAP_EXPECTED). Missing nodes are reported, not raised,
+    since they're an optional live/persisted layer on top of the base profile."""
+    by_name = {node['name']: node for node in list(sinks) + list(sources)}
+    result = {}
+    for name, expected_map in REMAP_EXPECTED.items():
+        node = by_name.get(name)
+        if node is None:
+            result[name] = {'present': False}
+            continue
+        actual_map = node.get('channel_map')
+        result[name] = {'present': True, 'channel_map': actual_map,
+                         'matches_expected': actual_map == expected_map}
+    result['ok'] = all(v.get('present') and v.get('matches_expected') for v in result.values()
+                        if isinstance(v, dict))
+    return result
 
 
 def _parse_uac_direction(text, direction):
@@ -129,6 +163,7 @@ def inventory():
         result['virtual_routing'] = trace_virtual_routes(values[1])
     except OSError as exc:
         result['virtual_routing'] = {'error': str(exc)}
+    result['remap_status'] = remap_status(values[1], values[2])
     return result
 
 
@@ -136,8 +171,13 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-o', '--output', help='create a new JSON plan file')
+    parser.add_argument('--verify', action='store_true',
+                         help='exit 1 if the A50_Game_51/A50_Voice/A50_Mic remap nodes are '
+                              'missing or have an unexpected channel map')
     args = parser.parse_args()
     result = inventory()
     if args.output:
         a50.save_json(args.output, result)
     print(json.dumps(result, indent=2))
+    if args.verify and not result['remap_status']['ok']:
+        sys.exit(1)

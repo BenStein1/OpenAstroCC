@@ -6,9 +6,22 @@ volume, battery/charging, firmware identity, microphone/stream controls, and
 sidetone/noise-gate are implemented. Thirty-eight reversible hardware checks
 passed and restored the recovered baseline. Physical Game/Voice playback,
 hardware balance mixing, and Dolby ON/OFF toggle verified (2026-10-24).
-Sidetone/mic audibility, sync (persist), power-cycle verification, and
-per-app stream routing remain open; see [FEATURES](docs/FEATURES.md) for
-the precise ledger.
+**Normal-game 5.1 surround is implemented and verified (2026-10-24):** the raw
+`pro-audio` profile labels the Game output's channels `aux0..aux5`, which apps
+don't recognise as surround. `config/15-astro-a50-remap.conf` (installed,
+also live-applied without any service restart via
+`artifacts/surround-integration/apply-live.sh`) exposes `A50 Game 5.1`
+(FL/FR/FC/LFE/RL/RR), `A50 Voice` (stereo), and `A50 Mic` (mono) as named
+PipeWire/Pulse devices with correct channel maps. SDL2 (both its pulseaudio
+and pipewire drivers) enumerates `A50 Game 5.1` and negotiates 6 channels
+against it — see `artifacts/surround-integration/sdl-*-probe.log`. The two old
+stale `a50-loopback-{game,voice}.service` units are now disabled (were already
+inactive). `tools/a50_audio.py --verify` checks the three remap nodes exist
+with the expected channel maps.
+Sidetone/mic audibility, sync (persist), power-cycle verification of these new
+configs, and the optional KDE-tray hide-list update (needs Ben's sudo; see
+`artifacts/surround-integration/PulseObjectFilterModel.qml.diff`) remain open;
+see [FEATURES](docs/FEATURES.md) for the precise ledger.
 
 Run the app with the installed system Python:
 
@@ -39,4 +52,9 @@ QT_QPA_PLATFORM=offscreen /usr/bin/python3 tools/a50_gui.py --snapshot /tmp/a50-
 [Native app behavior](docs/NATIVE-APP.md), [protocol evidence](docs/A50-PROTOCOL.md),
 [slot1 recovery](docs/EQ-RECOVERY.md), [continuation handoff](HANDOFF.md).
 Proprietary app artifacts and private captures stay ignored. No raw-command,
-firmware or reset control. Global audio configuration and services unchanged.
+firmware or reset control. Scope is A50-specific: the `pro-audio` profile pin
+and the 5.1/mono remap config are installed under
+`~/.config/wireplumber/wireplumber.conf.d/` and
+`~/.config/pipewire/pipewire-pulse.conf.d/`; the system default sink/source
+(Audioengine speakers / webcam mic) is untouched, and no PipeWire/WirePlumber
+service was restarted to apply them live.
