@@ -37,8 +37,25 @@ def run(live):
         assert not window.buttons['Write working settings'].isEnabled()
         window.eq[1][0][0].setValue(before['slots'][1]['gains']['working'][0] + 1)
         assert window.draft()['slots'] != before['slots']
+        # The 1-octave reference is in the slider's center; programmatically
+        # loading an arbitrary raw hardware value must never round it.
+        width = window.eq[1][2][2]  # Bell 3 in slot 2
+        assert window.eq[1][0][2] is None, 'shelves have no bandwidth control'
+        original_raw = before['slots'][1]['bands'][2]['working']['bandwidth_raw']
+        width.setRawValue(4567)
+        assert width.rawValue() == 4567
+        assert window.draft()['slots'][1]['bands'][2]['working']['bandwidth_raw'] == 4567
+        width.slider.setValue(0)
+        assert width.rawValue() == 409
+        width.slider.setValue(50)
+        assert width.rawValue() == 4096, 'center must be exactly 1.0 octave'
+        width.slider.setValue(100)
+        assert width.rawValue() == 12288, 'right end must be 3.0 octaves'
+        width.setRawValue(original_raw)
+        window.eq[1][0][0].setValue(before['slots'][1]['gains']['working'][0])
+        assert window.draft()['slots'] == before['slots'], 'unchanged EQ should round-trip exactly'
         window.close()
-        print('PASS: offline GUI exact values, editing, hardware writes disabled')
+        print('PASS: offline EQ bandwidth Narrow/1.0/Wide slider, raw precision, writes disabled')
         return
     try:
         widget = window.eq[1][0][0]
