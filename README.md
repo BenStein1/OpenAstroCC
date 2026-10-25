@@ -1,95 +1,80 @@
 # OpenAstroCC
 
-**Open-source Command Center for the Astro A50 Gen 3 on Linux.**
+**An open-source Astro A50 Gen 3 Command Center for Linux.**
 
-OpenAstroCC is an unofficial Linux application for configuring the Astro A50
-Gen 3 headset and base station, including its equalizer, microphone, dock,
-and separate Game/Voice audio paths. It was built to make older hardware
-useful without depending on the original Windows software.
+Change your EQ, adjust your microphone and sidetone, manage presets, and
+configure Game/Voice audio—without going back to Windows.
 
-**Supported hardware:** Astro A50 Gen 3 / Europa, USB `9886:0015`.
-Other generations and USB IDs have **not** been verified.
+## What is it?
 
-## Features
+OpenAstroCC is a desktop control panel for the **Astro A50 Gen 3**
+headset and base station (USB `9886:0015`).
 
-- Three editable five-band EQ slots with a draggable response curve, frequency
-  fields, and narrow/wide octave controls.
-- Protected Astro factory presets and editable custom `.astroeq` profiles;
-  import, export, name and save your own EQs.
-- Headset battery/charging status, current EQ slot, microphone controls,
-  sidetone, noise gate, dock brightness, and Game/Voice balance settings.
-- Device backup and restoration with verified readback.
-- Separate six-channel Game, stereo Voice and mono microphone outputs on
-  supported Linux audio configurations.
-- An **About → Audio setup…** tool that previews optional user-level
-  PipeWire/WirePlumber configuration before requesting permission.
+- **Equalizer:** Drag the five EQ points, tune frequencies and bandwidth,
+  or choose an Astro or custom preset.
+- **Headset controls:** Adjust sidetone, mic settings, Game/Voice balance
+  and dock options. Check battery and charging status.
+- **Audio:** Set up separate 5.1 Game, stereo Voice and microphone devices.
+- **Backups:** Export your headset configuration and restore it later.
 
-## Get started
+## Installation
 
-**AppImage (Linux x86_64):** download an artifact from a
-[successful AppImage workflow run](.github/workflows/appimage.yml), or build
-one from a clone of this repository:
+There isn't a published binary release yet. For now, build the AppImage
+from the repository.
+
+### AppImage (Linux x86_64)
 
 ```bash
+git clone https://github.com/BenStein1/OpenAstroCC.git
+cd OpenAstroCC
 bash scripts/build_appimage_local.sh
-```
-
-The build produces `dist/OpenAstroCC-x86_64.AppImage`. On a compatible
-AppImage runtime, launch it with:
-
-```bash
-chmod +x dist/OpenAstroCC-x86_64.AppImage
 ./dist/OpenAstroCC-x86_64.AppImage
 ```
 
-If your AppImageLauncher cannot read its compression format, run the already
-built app from `./dist/AppDir/AppRun`. Details and older-Linux compatibility:
-[AppImage build and troubleshooting](docs/APPIMAGE.md).
+If an older AppImageLauncher prevents it from opening, use
+`./dist/AppDir/AppRun` instead. See [AppImage troubleshooting](docs/APPIMAGE.md).
 
-**Run from source:** with Python 3 and PyQt6 installed on Linux:
+### Run from source
+
+With Python 3 and PyQt6 installed:
 
 ```bash
 python3 tools/a50_gui.py
 ```
 
-USB device permissions and host audio routing may need one-time setup. See
-[Audio setup](docs/AUTO-AUDIO-SETUP.md) before changing system configuration.
+## Usage
 
-## Applying EQ and headset settings
+1. **Choose a preset** or drag the colored EQ points to shape the sound.
+2. Click **Test Current Settings** to apply the changes to the headset
+   without permanently saving them.
+3. Click **Save to headset** when you want to keep those settings.
+   **Save preset…** saves an EQ file for reuse instead.
 
-1. Choose a preset or adjust the EQ by dragging its colored points or editing
-   the frequency and bandwidth controls.
-2. **Test Current Settings** applies the current editor values to the headset's
-   *working* settings, with a backup and readback. It does **not** save
-   those changes permanently.
-3. **Save to headset** explicitly persists the current headset configuration.
-   **Save preset…** is different: it writes a reusable `.astroeq` file.
-
-AppImages are not Flatpak-style sandboxes. Your custom profiles and settings
-remain writable in normal user-data directories; see
-[AppImage data locations](docs/APPIMAGE.md).
+To configure Linux audio channels, open **About → Audio setup…** and preview
+the suggested configuration before installing it.
 
 ## Documentation
 
-| Topic | Guide |
-|---|---|
-| Install, audio discovery and setup safeguards | [Automatic audio setup](docs/AUTO-AUDIO-SETUP.md) |
-| Presets, controls and persistence | [Application guide](docs/NATIVE-APP.md) |
-| Developer setup, tests and known limitations | [Development and verification](docs/DEVELOPMENT.md) |
-| Full USB/HID protocol and reverse-engineering methodology | [Gen 3 implementation guide](docs/GEN3-IMPLEMENTATION-GUIDE.md) |
-| Six-channel Game/Voice routing | [Audio pipeline](docs/AUDIO-PIPELINE.md) |
-| Verified features versus outstanding hardware tests | [Acceptance ledger](docs/FEATURES.md) |
-| Distributable build and license details | [AppImage](docs/APPIMAGE.md) · [Third-party notices](docs/THIRD_PARTY_NOTICES.md) |
+- [Audio setup](docs/AUTO-AUDIO-SETUP.md) — device detection and routing
+- [Application guide](docs/NATIVE-APP.md) — EQs, presets, controls and saving
+- [AppImage guide](docs/APPIMAGE.md) — builds, configuration and troubleshooting
+- [Developer guide](docs/GEN3-IMPLEMENTATION-GUIDE.md) — USB/HID protocol and reverse engineering
+- [Development and testing](docs/DEVELOPMENT.md) — validation and remaining work
 
-## Contributing and license
+## Contributing
 
-Bug reports, compatibility testing, documentation corrections and pull requests
-are welcome. Please identify the headset generation and USB ID when reporting
-protocol behavior, and avoid testing undocumented write commands on hardware.
+Issues, fixes, testing and pull requests are welcome. Please include your
+headset generation and USB ID when reporting hardware behavior.
 
-OpenAstroCC is licensed under **[GPL-3.0-only](LICENSE)**. See
-[third-party notices](docs/THIRD_PARTY_NOTICES.md) for dependency attributions.
-This is an independent project, not affiliated with or endorsed by Astro Gaming
-or Logitech. Firmware and proprietary Windows application binaries are not
-included. The redistribution rights for original vendor-authored EQ preset
-data should be verified before a public release.
+## Experimental support
+
+Currently tested on **A50 Gen 3 / Europa (`9886:0015`)**. Other Astro
+headsets are not confirmed compatible. Automatic Linux audio routing and
+some persistence/reconnection cases still need wider hardware testing.
+See the [feature status](docs/FEATURES.md).
+
+## License
+
+[GPL-3.0-only](LICENSE). OpenAstroCC is an independent project, not
+affiliated with Astro Gaming or Logitech. See [third-party notices](docs/THIRD_PARTY_NOTICES.md)
+for attribution and vendor preset redistribution considerations.
