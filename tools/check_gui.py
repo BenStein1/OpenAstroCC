@@ -8,7 +8,7 @@ import tempfile
 import time
 from pathlib import Path
 from unittest.mock import patch
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtTest import QTest
 import a50
 import a50_names
@@ -62,7 +62,7 @@ def run(live):
         window.eq[1][0][0].setValue(before['slots'][1]['gains']['working'][0])
         assert window.draft()['slots'] == before['slots'], 'unchanged EQ should round-trip exactly'
         # Exercise real GUI name handlers without writing to the user's XDG config.
-        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {'XDG_CONFIG_HOME': home}):
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {'XDG_CONFIG_HOME': home, 'XDG_DATA_HOME': home}):
             with patch('a50_gui.QInputDialog.getText', return_value=('Night Gaming', True)):
                 window.rename_eq(2)
             assert window.eq_names[1] == 'Night Gaming'
@@ -120,6 +120,51 @@ def run(live):
             window.refresh_eq_names()
             assert window.eq_display_names()[1] == 'Imported from Windows'
             assert window.tabs.tabText(1) == 'EQ 2'
+
+            # Choose the screenshot-based example from a compact dropdown.
+            picker = window.eq_pickers[2]
+            example_index = picker.findText('Example · Bass & Clarity')
+            assert example_index >= 0
+            window.choose_library_preset(3, example_index)
+            assert window.draft()['slots'][2]['bands'][2]['working']['bandwidth_raw'] == 8192
+            assert 'Bass & Clarity' in window.eq_name_labels[2].text()
+            assert window.tabs.tabText(2) == 'EQ 3'
+            # Moving a gain marks the edited file as modified, but changes no hardware.
+            window.eq[2][0][0].setValue(5)
+            assert '(modified)' in window.eq_name_labels[2].text()
+            astro_index = picker.findText('Astro · ASTRO')
+            assert astro_index >= 0
+            with patch('a50_gui.QMessageBox.question',
+                       return_value=QMessageBox.StandardButton.Cancel):
+                window.choose_library_preset(3, astro_index)
+            assert window.eq[2][0][0].value() == 5, 'cancelled switch discarded edits'
+
+            factory = root / 'presets/ASTRO.astroeq'
+            unchanged_factory = factory.read_bytes()
+            with patch('a50_gui.QInputDialog.getText',
+                       return_value=('Bass & Clarity Personal', True)):
+                window.save_library_preset(3)
+            saved = Path(home) / 'astro-a50-linux/presets/Bass & Clarity Personal.astroeq'
+            assert saved.exists()
+            assert a50.load_astroeq(saved)['gains'][0] == 5
+            assert '(modified)' not in window.eq_name_labels[2].text()
+            assert factory.read_bytes() == unchanged_factory
+
+            # Only an explicit Yes may overwrite the user's own custom preset.
+            window.eq[2][0][0].setValue(7)
+            assert '(modified)' in window.eq_name_labels[2].text()
+            with patch('a50_gui.QMessageBox.question',
+                       return_value=QMessageBox.StandardButton.No), patch(
+                       'a50_gui.QInputDialog.getText', return_value=('', False)):
+                window.save_library_preset(3)
+            assert a50.load_astroeq(saved)['gains'][0] == 5
+            with patch('a50_gui.QMessageBox.question',
+                       return_value=QMessageBox.StandardButton.Yes):
+                window.save_library_preset(3)
+            assert a50.load_astroeq(saved)['gains'][0] == 7
+            assert factory.read_bytes() == unchanged_factory
+            window.populate(before)
+            assert window.draft()['slots'] == before['slots']
         window.close()
         print('PASS: offline EQ bandwidth Narrow/1.0/Wide slider, raw precision, writes disabled')
         return

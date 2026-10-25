@@ -42,6 +42,18 @@ include optional `eq_names`. The local saved labels live in
 A clean clone without factory preset files will show Unnamed until a preset
 is imported or renamed.
 
+**Preset library:** Each EQ tab now has **Choose preset…** and **Save preset…**.
+Choose from the five protected factory Astro EQs, the bundled **Bass & Clarity**
+example (created from the provided custom EQ 3 screenshot), or custom presets in
+`~/.local/share/astro-a50-linux/presets/` (or `$XDG_DATA_HOME`). The custom
+example uses +6/-2/0/+2/+4 dB at 90/406/783/4001/7001 Hz with 2.0-octave
+middle bands. Loading changes only the **editor**, not the headset. Editing
+shows **(modified)** and switching with unsaved edits asks whether to save,
+discard or cancel. **Save preset…** creates a named personal file or, with
+explicit approval, overwrites **only your own preset**; it never changes the
+five Astro originals or the bundled example. `.astroeq` files are text, not
+headset firmware. See [native app behavior](docs/NATIVE-APP.md).
+
 **Settings app only:** edits are staged until **Write working settings**. Every
 write saves a baseline, checks readback and retains exact TX/RX under ignored
 `artifacts/backups/`. Persistent save to headset storage is a separate explicit
