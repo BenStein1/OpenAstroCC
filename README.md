@@ -19,6 +19,10 @@ headset and base station (USB `9886:0015`).
 - **Audio:** Set up separate 5.1 Game, stereo Voice and microphone devices.
 - **Backups:** Export your headset configuration and restore it later.
 
+### Supported headset
+
+<img src="docs/assets/astro-a50-gen3-headset.jpg" alt="Astro A50 Gen 3 headset and base station" width="210">
+
 ## Installation
 
 ### AppImage (Linux x86_64)
