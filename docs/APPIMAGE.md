@@ -8,9 +8,13 @@ USB `9886:0015`. No vendor binaries or firmware are packaged.
 ## Build on Linux (Ubuntu 22.04+ recommended)
 
 ```bash
-python3 -m pip install PyQt6==6.9.1 pyinstaller==6.16.0
-bash scripts/build_appimage.sh
+bash scripts/build_appimage_local.sh
 ```
+
+That command creates a private build virtual environment under
+`build/appimage-venv/`, installs pinned PyQt6/PyInstaller dependencies and
+builds the complete AppImage without changing the system Python installation.
+On a preconfigured build host, `bash scripts/build_appimage.sh` works directly.
 
 The script also requires `curl` and the corresponding graphical libraries
 available on the host. It downloads the current maintained x86_64
