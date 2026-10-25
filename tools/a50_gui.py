@@ -14,7 +14,7 @@ from PyQt6.QtCore import QEvent, QPointF, QProcess, QRectF, Qt, QThread, QTimer,
 from PyQt6.QtGui import QColor, QIcon, QPixmap, QFont, QLinearGradient, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGridLayout, QFormLayout, QLabel, QPushButton, QTabWidget,
-    QSpinBox, QDoubleSpinBox, QComboBox, QFileDialog, QMessageBox, QInputDialog, QPlainTextEdit,
+    QSpinBox, QAbstractSpinBox, QDoubleSpinBox, QComboBox, QFileDialog, QMessageBox, QInputDialog, QPlainTextEdit,
     QSlider, QFrame, QSizePolicy, QStyle, QStyleOptionSlider, QStylePainter)
 import a50
 import a50_names
@@ -698,12 +698,16 @@ class Window(QMainWindow):
             toolbar.addWidget(button)
             self.buttons[name] = button
         toolbar.addStretch(1)
-        for name, callback in [('Write working settings', self.apply), ('Save to headset', self.persist)]:
+        for name, callback in [('Test Current Settings', self.apply), ('Save to headset', self.persist)]:
             button = QPushButton(name)
             button.clicked.connect(callback)
             toolbar.addWidget(button)
             self.buttons[name] = button
-        self.buttons['Write working settings'].setObjectName('primary')
+        self.buttons['Test Current Settings'].setObjectName('primary')
+        self.buttons['Test Current Settings'].setToolTip(
+            'Apply the settings shown in the editor to headset working memory, '
+            'with a backup and readback. This does not permanently save them. '
+            'Use Save to headset when you want to keep them.')
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs, 1)
         self.eq = []
@@ -854,7 +858,7 @@ class Window(QMainWindow):
         inner.addWidget(hint('Test sidetone writes the level above to the headset (working setting only, nothing '
                              'is saved) and shows a live meter of the A50 mic. Leave it running and move the '
                              'slider to hear the change as you talk.'))
-        inner.addWidget(hint('Changes here stay in the editor until you press “Write working settings”. Only the sidetone '
+        inner.addWidget(hint('Changes here stay in the editor until you press “Test Current Settings”. Only the sidetone '
                              'test writes on its own. Listening and recording confirmation remain pending.'))
         box.addWidget(frame)
         box.addStretch(1)
@@ -874,7 +878,7 @@ class Window(QMainWindow):
         self.details = QPlainTextEdit()
         self.details.setReadOnly(True)
         self.tabs.addTab(self.details, 'Device / audio')
-        self.notice = QLabel('Working writes are read back and backed up. Save to headset persists all working settings.')
+        self.notice = QLabel('Test Current Settings applies changes without permanently saving them. Save to headset stores them.')
         if self.names_error:
             self.notice.setText('EQ name file could not be read; names will not be overwritten: ' + self.names_error)
         self.notice.setObjectName('hint')
@@ -990,7 +994,7 @@ class Window(QMainWindow):
             self.eq_selected_refs[slot - 1] = preset
             self.eq_origin_signatures[slot - 1] = a50_library.slot_signature(imported, slot)
             self.refresh_eq_names()
-            self.notice.setText('Loaded %s into EQ %d editor. Write working settings to hear it.' %
+            self.notice.setText('Loaded %s into EQ %d editor. Test Current Settings to hear it.' %
                                 (preset.name, slot))
         except (OSError, ValueError, KeyError, TypeError) as exc:
             self.notice.setText('Could not load preset: ' + str(exc))
@@ -1097,6 +1101,9 @@ class Window(QMainWindow):
     def spin(low, high):
         spin = QSpinBox()
         spin.setRange(low, high)
+        # Packaged Qt themes render the tiny step arrows inconsistently.
+        # Keep keyboard editing, mouse wheel, and draggable EQ curve nodes.
+        spin.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         return spin
 
     def update_enabled(self):
@@ -1104,7 +1111,7 @@ class Window(QMainWindow):
         busy = self.busy and not self.quiet
         for name, button in self.buttons.items():
             button.setEnabled(not busy and (name == 'Refresh / reconnect' or self.document is not None))
-        self.buttons['Write working settings'].setEnabled(not busy and self.connected and not self.offline)
+        self.buttons['Test Current Settings'].setEnabled(not busy and self.connected and not self.offline)
         self.buttons['Save to headset'].setEnabled(not busy and self.connected and not self.offline)
         self.sidetone_test.setEnabled(self.testing or not busy and self.connected and not self.offline
                                       and self.document is not None and self.document['schema'] == 'astro-a50-gen3-v2')
@@ -1377,7 +1384,7 @@ class Window(QMainWindow):
         self.populate(document)
         self.update_auto_eq_names(document)
         if pending is not None:
-            # Keep the other unwritten editor edits; they still need "Write working settings".
+            # Keep the other unwritten editor edits; they still need "Test Current Settings".
             baseline = self.document
             self.populate(pending)
             self.document = baseline
@@ -1386,7 +1393,7 @@ class Window(QMainWindow):
 
     def persist(self):
         if not a50.same_settings(self.draft(), self.document):
-            self.notice.setText('Write working settings first; pending editor changes have not reached the headset.')
+            self.notice.setText('Test Current Settings first to apply the edits before saving them to the headset.')
             return
         answer = QMessageBox.question(self, 'Save all working settings?',
             'Persist all current headset settings, including microphone/stream settings. '
@@ -1439,7 +1446,7 @@ class Window(QMainWindow):
                 self.populate(current)
                 self.document = baseline
                 self.notice.setText('Backup loaded into editor with local EQ names where provided; '
-                                    'write working settings to restore audio parameters.')
+                                    'test current settings to restore audio parameters.')
             except Exception as exc:
                 self.notice.setText('Import refused: ' + str(exc))
 
@@ -1463,7 +1470,7 @@ class Window(QMainWindow):
                     (ref for ref in self.library_presets if ref.path == Path(path)), None)
                 self.eq_origin_signatures[slot - 1] = a50_library.slot_signature(imported, slot)
                 self.refresh_eq_names()
-                self.notice.setText('Imported “%s” into EQ %d editor; write working settings to use it.' %
+                self.notice.setText('Imported “%s” into EQ %d editor; test current settings to use it.' %
                                     (imported_name, slot))
             else:
                 a50.export_preset(self.draft(), slot, path, name=self.eq_display_names()[slot - 1])
