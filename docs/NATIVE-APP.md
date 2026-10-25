@@ -3,6 +3,16 @@
 Run `/usr/bin/python3 tools/a50_gui.py`. The system Python has PyQt6; the
 pyenv default does not. No packages or global configuration were installed.
 
+UI (2026-10-25 redesign): dark themed window. Each EQ tab has an interactive
+graphic EQ: a log-frequency response curve (estimated with RBJ biquads at 48 kHz,
+not a measurement of the headset DSP) with draggable band nodes (vertical = gain,
+horizontal = frequency, mouse wheel on a bell = bandwidth), plus per-band gain
+sliders and exact frequency/bandwidth boxes. "Volume and balance" has sliders for
+Game/Voice balance, alert volume and the four stream levels; the microphone and
+dock pages use sliders too. Control semantics and the write path are unchanged.
+The Game/Voice end labels follow the existing label order and are not yet
+confirmed against hardware. Offscreen check: `QT_QPA_PLATFORM=offscreen python3 tools/check_gui.py`.
+
 The app reads three EQ slots, all five frequencies and the three bell bandwidths,
 dock defaults, current battery/charging, hardware balance and selected EQ slot.
 It reads base/headset identity (firmware 36791/36154 on this hardware), and on

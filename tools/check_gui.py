@@ -25,7 +25,7 @@ def settle(window):
 def run(live):
     app = QApplication([])
     root = Path(__file__).resolve().parent.parent
-    baseline_path = root / 'artifacts/backups/slot1-recovery-host/after.json'
+    baseline_path = root / 'evidence/a50-baseline.json'
     window = Window(None if live else str(baseline_path))
     window.show()
     settle(window)
