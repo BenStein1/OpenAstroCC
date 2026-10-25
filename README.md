@@ -5,6 +5,8 @@
 Change your EQ, adjust your microphone and sidetone, manage presets, and
 configure Game/Voice audio—without going back to Windows.
 
+![OpenAstroCC main window showing the five-band EQ, presets and headset controls](docs/assets/openastrocc-main.png)
+
 ## What is it?
 
 OpenAstroCC is a desktop control panel for the **Astro A50 Gen 3**
