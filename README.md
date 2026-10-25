@@ -44,13 +44,12 @@ is imported or renamed.
 
 **Preset library:** Each EQ tab now has **Choose preset…** and **Save preset…**.
 Choose from **Astro** factory presets or **Custom** presets, including the bundled **Bass & Clarity** curve (created from the provided custom EQ 3 screenshot) and your saved presets in
-`~/.local/share/astro-a50-linux/presets/` (or `$XDG_DATA_HOME`). The custom
-example uses +6/-2/0/+2/+4 dB at 90/406/783/4001/7001 Hz with 2.0-octave
+`~/.local/share/astro-a50-linux/presets/` (or `$XDG_DATA_HOME`). The bundled custom preset uses +6/-2/0/+2/+4 dB at 90/406/783/4001/7001 Hz with 2.0-octave
 middle bands. Loading changes only the **editor**, not the headset. Editing
 shows **(modified)** and switching with unsaved edits asks whether to save,
 discard or cancel. **Save preset…** creates a named personal file or, with
 explicit approval, overwrites **only your own preset**; it never changes the
-five Astro originals or the bundled example. `.astroeq` files are text, not
+five Astro originals or the bundled Bass & Clarity preset. `.astroeq` files are text, not
 headset firmware. See [native app behavior](docs/NATIVE-APP.md).
 
 **Settings app only:** edits are staged until **Write working settings**. Every

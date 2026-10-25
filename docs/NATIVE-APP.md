@@ -25,7 +25,7 @@ The list has just two visible categories:
 
 - **Astro:** the five shipped default `.astroeq` files in `presets/`; read-only.
 - **Custom:** includes the bundled `Bass & Clarity` custom EQ at
-  `presets/examples/Bass & Clarity.astroeq` and your personal presets in
+  `presets/custom/Bass & Clarity.astroeq` and your personal presets in
   `$XDG_DATA_HOME/astro-a50-linux/presets/` (default
   `~/.local/share/astro-a50-linux/presets/`). The bundled Bass & Clarity
   file is read-only; only personal custom files can be overwritten.
@@ -44,13 +44,13 @@ been written to the headset. **Save preset…** saves a separate `.astroeq`
 file in your personal **Custom** library, prompting for a name. When editing a previously selected
 personal custom preset, it asks whether to overwrite **that file** or save
 as a new one. Overwrites require an explicit affirmative answer. Bundled
-Astro/default/example files are never overwritten, and preset-file saving
+Astro factory and bundled custom preset files are never overwritten, and preset-file saving
 never sends a USB command.
 
-The supplied Bass & Clarity example rounds the original 1.99-octave bell
+The bundled Bass & Clarity custom preset rounds the original 1.99-octave bell
 to exactly **2.00**. Its file is available immediately in the dropdown;
 it is not silently written into the owner's existing headset slot. Select
-the example, then use the existing headset-write controls if desired.
+the custom preset, then use the existing headset-write controls if desired.
 
 ## EQ slot names (local metadata)
 

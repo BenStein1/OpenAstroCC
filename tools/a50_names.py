@@ -75,7 +75,7 @@ def preset_directories():
     root = Path(__file__).resolve().parent.parent
     dirs = [
         root / "presets",  # Factory defaults.
-        root / "presets/examples",  # Distributable custom example curves.
+        root / "presets/custom",  # Bundled read-only custom curves.
         root / "artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ",
         root / "artifacts/appdata-classic/Astro A50 Wireless/Astro EQ",
         root / "artifacts/appdata-store/ASTRO A50 Wireless",

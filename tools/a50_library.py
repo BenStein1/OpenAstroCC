@@ -19,7 +19,7 @@ import a50_names
 class Preset:
     name: str
     path: Path
-    source: str  # 'Astro', 'Example', or 'Mine'
+    source: str  # 'Astro', 'Custom' (bundled/read-only), or 'Mine' (user-writable)
 
     @property
     def writable(self):
@@ -38,7 +38,7 @@ def custom_dir():
 def preset_folders():
     root = repo_root()
     return ((root / "presets", "Astro"),
-            (root / "presets/examples", "Example"),
+            (root / "presets/custom", "Custom"),
             (custom_dir(), "Mine"))
 
 
