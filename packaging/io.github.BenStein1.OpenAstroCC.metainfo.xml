@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AppStream metadata for OpenAstroCC and the AppImageHub directory.
+  The screenshot URL points to the actual connected-headset UI image
+  maintained in this repository, not AppImageHub's 800x600 no-device probe.
+-->
+<component type="desktop-application">
+  <id>io.github.BenStein1.OpenAstroCC</id>
+  <name>OpenAstroCC</name>
+  <summary>Configure Astro A50 Gen 3 headsets on Linux</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <description>
+    <p>OpenAstroCC is an open-source native Linux control panel for the Astro A50
+    Gen 3 headset and base station. It replaces the Windows-only command center
+    for supported headset settings without requiring proprietary software.</p>
+    <p>Edit five-band equalizer profiles visually, choose or save EQ presets,
+    adjust microphone and sidetone options, inspect battery and charging
+    status, and back up or restore headset settings. Linux audio setup helps
+    configure separate Game and Voice streams.</p>
+  </description>
+  <launchable type="desktop-id">astro-a50-linux.desktop</launchable>
+  <icon type="stock">astro-a50-linux</icon>
+  <url type="homepage">https://github.com/BenStein1/OpenAstroCC</url>
+  <url type="bugtracker">https://github.com/BenStein1/OpenAstroCC/issues</url>
+  <url type="help">https://github.com/BenStein1/OpenAstroCC/blob/main/docs/NATIVE-APP.md</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>OpenAstroCC equalizer and headset controls with an Astro A50 Gen 3 connected</caption>
+      <image type="source">https://raw.githubusercontent.com/BenStein1/OpenAstroCC/main/docs/assets/openastrocc-main.png</image>
+    </screenshot>
+  </screenshots>
+</component>
