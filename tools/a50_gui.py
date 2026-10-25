@@ -8,8 +8,9 @@ from pathlib import Path
 import array
 import math
 import subprocess
-from PyQt6.QtCore import QPointF, QProcess, QRectF, Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen
+import time
+from PyQt6.QtCore import QEvent, QPointF, QProcess, QRectF, Qt, QThread, QTimer, pyqtSignal
+from PyQt6.QtGui import QColor, QIcon, QPixmap, QFont, QLinearGradient, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGridLayout, QFormLayout, QLabel, QPushButton, QTabWidget,
     QSpinBox, QDoubleSpinBox, QComboBox, QFileDialog, QMessageBox, QPlainTextEdit,
@@ -140,6 +141,45 @@ class DragSlider(QSlider):
             super().wheelEvent(event)
         else:
             event.ignore()
+
+
+def make_icon():
+    """App icon drawn at runtime: dark rounded tile, orange headset with a mic boom."""
+    icon = QIcon()
+    for size in (16, 24, 32, 48, 64, 128, 256):
+        pix = QPixmap(size, size)
+        pix.fill(Qt.GlobalColor.transparent)
+        p = QPainter(pix)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        u = size / 100
+        gradient = QLinearGradient(0, 0, 0, size)
+        gradient.setColorAt(0, QColor('#2a2f3a'))
+        gradient.setColorAt(1, QColor('#14161b'))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(gradient)
+        p.drawRoundedRect(QRectF(2 * u, 2 * u, 96 * u, 96 * u), 22 * u, 22 * u)
+        pen = QPen(QColor(ACCENT), 9 * u)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawArc(QRectF(24 * u, 20 * u, 52 * u, 56 * u), 0, 180 * 16)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(ACCENT))
+        p.drawRoundedRect(QRectF(17 * u, 46 * u, 15 * u, 28 * u), 6 * u, 6 * u)
+        p.drawRoundedRect(QRectF(68 * u, 46 * u, 15 * u, 28 * u), 6 * u, 6 * u)
+        boom = QPen(QColor('#ffc247'), 5 * u)
+        boom.setCapStyle(Qt.PenCapStyle.RoundCap)
+        p.setPen(boom)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        path = QPainterPath(QPointF(24 * u, 74 * u))
+        path.quadTo(QPointF(28 * u, 86 * u), QPointF(46 * u, 84 * u))
+        p.drawPath(path)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor('#ffc247'))
+        p.drawEllipse(QPointF(49 * u, 84 * u), 5 * u, 5 * u)
+        p.end()
+        icon.addPixmap(pix)
+    return icon
 
 
 class SliderRow(QWidget):
@@ -462,9 +502,14 @@ class Job(QThread):
 
 
 class Window(QMainWindow):
+    POLL_STATUS_MS = 60000   # battery/charging only; also refreshed whenever the window is activated
+    POLL_RETRY_MS = 3000     # looking for a disconnected headset (a sysfs scan, no USB traffic)
+    RECONNECT_WAIT = 12.0    # seconds Refresh keeps looking for the headset to reappear
+
     def __init__(self, offline=None, smoke=False):
         super().__init__()
         self.setWindowTitle('Astro A50 · Linux')
+        self.setWindowIcon(make_icon())
         self.resize(940, 760)
         self.document = None
         self.offline = offline
@@ -474,6 +519,7 @@ class Window(QMainWindow):
         self.done_message = None
         self.testing = False
         self.pending = None
+        self.persisting = False
         self.capture = None
         self.sidetone_timer = QTimer(self)
         self.sidetone_timer.setSingleShot(True)
@@ -498,7 +544,7 @@ class Window(QMainWindow):
         toolbar.setSpacing(8)
         layout.addLayout(toolbar)
         self.buttons = {}
-        for name, callback in [('Refresh / reconnect', self.refresh), ('Export backup', self.backup),
+        for name, callback in [('Refresh / reconnect', lambda: self.refresh(True)), ('Export backup', self.backup),
                                ('Import backup', self.load_backup)]:
             button = QPushButton(name)
             button.clicked.connect(callback)
@@ -663,7 +709,7 @@ class Window(QMainWindow):
         self.notice.setWordWrap(True)
         layout.addWidget(self.notice)
         self.timer = QTimer(self)
-        self.timer.setInterval(5000)
+        self.timer.setInterval(self.POLL_RETRY_MS)
         self.timer.timeout.connect(self.poll)
         self.timer.start()
         self.update_enabled()
@@ -685,6 +731,14 @@ class Window(QMainWindow):
         self.sidetone_test.setEnabled(self.testing or not busy and self.connected and not self.offline
                                       and self.document is not None and self.document['schema'] == 'astro-a50-gen3-v2')
         self.tabs.setEnabled(not busy and self.document is not None)
+        want = self.POLL_STATUS_MS if self.connected else self.POLL_RETRY_MS
+        if self.timer.interval() != want:
+            self.timer.setInterval(want)
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.ActivationChange and self.isActiveWindow():
+            QTimer.singleShot(0, self.poll)
+        super().changeEvent(event)
 
     def run(self, action, done, quiet=False):
         if self.busy:
@@ -708,6 +762,10 @@ class Window(QMainWindow):
 
     def failed(self, message):
         self.pending = None
+        if self.persisting:
+            self.persisting = False
+            message += (' (Save to headset may have completed: the headset can drop off USB for a few seconds '
+                        'afterwards. Press Refresh / reconnect to check.)')
         self.connected = False
         self.identity = None
         self.status_label.setText('A50 operation failed: ' + message)
@@ -716,20 +774,31 @@ class Window(QMainWindow):
         if self.smoke:
             QApplication.instance().exit(1)
 
-    def refresh(self):
+    def refresh(self, wait=False, quiet=False):
+        patience = self.RECONNECT_WAIT if wait is True else 0
+
         def read():
             if self.offline:
                 return a50.validate_backup(json.loads(Path(self.offline).read_text())), None, None
-            with a50.A50Client() as client:
-                document = client.snapshot()
-                identity = self.identity or client.identity()
+            deadline = time.monotonic() + patience
+            while True:
+                try:
+                    with a50.A50Client() as client:
+                        document = client.snapshot()
+                        identity = self.identity or client.identity()
+                    break
+                except (OSError, a50.EqReadError):
+                    # The headset can drop off USB for several seconds after Save to headset.
+                    if time.monotonic() >= deadline:
+                        raise
+                    time.sleep(1.0)
             import a50_audio
             try:
                 audio = a50_audio.inventory()
             except Exception as exc:
                 audio = {'inventory_error': str(exc)}
             return document, identity, audio
-        self.run(read, self.refreshed)
+        self.run(read, self.refreshed, quiet)
 
     def refreshed(self, result):
         document, self.identity, self.audio = result
@@ -807,8 +876,10 @@ class Window(QMainWindow):
     def poll(self):
         if self.busy or self.offline:
             return
+        if self.connected and not self.isActiveWindow():
+            return  # nothing to show while another window is in front; refreshed on activation
         if not self.connected:
-            self.refresh()
+            self.refresh(quiet=True)
             return
         def read():
             with a50.A50Client() as client:
@@ -913,6 +984,7 @@ class Window(QMainWindow):
 
     def changed(self, result):
         document, directory = result
+        self.persisting = False
         pending, self.pending = self.pending, None
         self.populate(document)
         if pending is not None:
@@ -937,6 +1009,7 @@ class Window(QMainWindow):
             if not a50.same_settings(before, displayed):
                 raise a50.EqReadError('Settings changed since refresh; refresh before saving.')
             client.sync()
+        self.persisting = True
         self.run(lambda: a50.change_with_backup(action, persistent=True), self.changed)
 
     def backup(self):
@@ -1005,6 +1078,8 @@ if __name__ == '__main__':
     parser.add_argument('--smoke', action='store_true', help='read only, render, assert and exit')
     args = parser.parse_args()
     app = QApplication(sys.argv[:1])
+    app.setWindowIcon(make_icon())
+    app.setDesktopFileName('astro-a50-linux')
     window = Window(args.snapshot, args.smoke)
     window.show()
     if args.smoke:
