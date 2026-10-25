@@ -22,8 +22,8 @@ write saves a baseline, checks readback and retains exact TX/RX under ignored
 action. JSON backup/import and per-slot `.astroeq` import/export are available.
 JSON backups cover EQ, dock settings, microphone/stream controls, and noise gate.
 
-**Physical hardware:** the headset's physical Dolby button toggles between 6-channel discrete
-and stereo passthrough (verified). The Game/Voice hardware mixer is independent; both streams
+**Physical hardware:** with six-channel Game audio, Ben heard clear channel separation
+with Dolby on and a stereo L/R collapse with it off. The Game/Voice hardware mixer is independent; both streams
 can play simultaneously with Game/Voice buttons controlling relative levels (verified). The Linux
 app provides settings but does not replace these physical controls. USB device paths and stream
 routing are mapped for independent audio control when pro-audio profile is active.

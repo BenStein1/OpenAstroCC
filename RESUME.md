@@ -101,7 +101,7 @@ snapshots used for reversible testing pass (`before==after`, no stray sync).
 Ben explicitly approved three physical tests with A50 pro-audio profile active:
 1. **Separate Game/Voice playback** — Verified: both heard comfortably when played independently, and both heard when concurrent (no restart, no config edits, profile only)
 2. **Hardware balance control** — Verified: Game button favors low Game, Voice button favors high Voice; buttons functional on live concurrent streams
-3. **Dolby ON/OFF toggle** — Verified: "Very clear channel separation when Dolby was on, collapsed to L/R when off" (6-channel discrete when Dolby ON, stereo passthrough when OFF)
+3. **Dolby ON/OFF toggle** — Verified listening comparison: "Very clear channel separation when Dolby was on, collapsed to L/R when off" under six-channel Game input. Individual channel positions and LFE treatment were not separately established.
 
 Evidence and command line for verified 6-channel playback (including silent probe and audible test) in `docs/HARDWARE-TESTS.md` §4a-4b and `artifacts/audio-live/physical-acceptance.json`.
 
@@ -150,8 +150,8 @@ What's left:
    only with a fresh full baseline, confirm working==stored readback, then a
    real power-cycle to prove persistence — needs Ben physically present.
 
-3. **Software-side Dolby/mic-flip/headset-link status mapping:** Physical Dolby toggle confirmed functional (Dolby ON → 6-channel discrete, OFF → stereo passthrough). Remaining open: whether `0x72` field_id1 and other payload fields map to mute/flip/link status in software; static trace shows no bound consumer in the resolved-paths analysis. Needs fresh static trace of any consumer, or live interaction test.
+3. **Software-side Dolby/mic-flip/headset-link status mapping:** Physical Dolby toggle confirmed functional by Ben's listening comparison. Software status semantics remain unresolved; `0x72` field_id1 is not a proven Dolby/mute/link indicator. Further static analysis or correlated live interaction can investigate this.
 
-4. **Per-app stream routing:** Profile switch to pro-audio is now approved and tested. Pre-existing non-repo `~/.config/systemd/user/a50-loopback-{game,voice}.service` sinks still route to same physical sink (proven by live `pw-link` trace). Repointing those services' `target.object` to pro-output-0/pro-output-1 is outside this repo and user-driven.
+4. **Per-app stream routing:** Profile switch to pro-audio is now approved and tested. Ben stopped his pre-existing external Game/Voice loopback services; leave them stopped. Before that shutdown, both forwarded to the same physical Voice sink. Normal application/default routing has not been changed; the system default remains Audioengine. Any reuse of those services needs separate review of their target paths.
 
 5. **Config installation/autostart/reboot/WirePlumber persistence:** Candidate `config/51-astro-a50-pro-audio.conf` prepared; profile switch tested live without config install. Persistence (survive reboot) untested. Installation and verification is user-driven unless explicitly requested.

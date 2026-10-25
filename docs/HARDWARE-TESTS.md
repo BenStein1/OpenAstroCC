@@ -184,19 +184,12 @@ stdin path with explicit parameters bypasses that negotiation.
 Silent probe of all six channels confirmed individual link presence. With Dolby
 toggle:
 
-**Dolby ON (onboard 5.1 processing):** Very clear channel separation across all six
-channels (FL, FR, C, RL, RR, LFE) — each discrete, no mixing.
+Ben's report: "Very clear channel separation when Dolby was on, collapsed to L/R when off".
 
-**Dolby OFF (passthrough):** Collapsed to stereo L/R only; centre/surround/LFE
-silent.
-
-This confirms the headset renders the six discrete channels when Dolby is active
-(onboard processing), and Dolby's role as a 5.1-capable processor. In passthrough
-mode (Dolby OFF), the device appears to reduce to stereo.
-
-Note for each of the six whether it is audible and whether it appears to come from
-the expected direction. Front-left/front-right are the reliable anchors; centre
-and LFE commonly fold in.
+This confirms an audible spatial-mode change under verified six-channel Game
+input. The comparison did not separately establish every channel's perceived
+position or the LFE treatment; no claim of silent centre/surround channels in
+the off mode is supported by this report.
 
 ## What to report back
 
