@@ -1,5 +1,14 @@
 # Astro A50 Gen 3 for Linux
 
+**For developers and future maintainers:** [Gen 3 implementation and protocol guide](docs/GEN3-IMPLEMENTATION-GUIDE.md)
+documents the actual USB hardware, exact HID framing, all supported read/write
+commands, EQ wire encoding, physical Game/Voice audio routing, reverse-engineering
+methodology, validated evidence and remaining unknowns. It supersedes the
+older A20 hypotheses in the chronological [research notebook](docs/FINDINGS.md).
+
+**GitHub Actions failing before tests run?** See
+[GitHub reliability and zero-runner troubleshooting](docs/GITHUB-RELIABILITY.md).
+
 ## Downloadable AppImage and license
 
 This project is licensed under **GNU GPL version 3 only** (see [LICENSE](LICENSE)).
