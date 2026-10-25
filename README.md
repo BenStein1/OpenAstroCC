@@ -7,8 +7,10 @@ You're free to use, share, modify and redistribute it under GPLv3, including
 commercially, without any warranty or support obligation. PyQt6's GPL version
 is why this can't simultaneously be marked "non-commercial only."
 
-Build or download the portable **x86_64 AppImage** from the
-[Build Astro A50 Linux AppImage GitHub Actions workflow](.github/workflows/appimage.yml).
+Build the **x86_64 AppImage** locally in one command:
+`bash scripts/build_appimage_local.sh`, or download a successfully tested
+build artifact from the [GitHub Actions AppImage workflow](.github/workflows/appimage.yml)
+when hosted runners are available.
 It bundles Python, PyQt6/Qt, the app, preset files and complete license texts.
 The **About** dialog displays attribution notices and has an **orange Audio
 setup…** button. That action only installs WirePlumber configuration after
