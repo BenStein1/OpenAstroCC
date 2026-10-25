@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Astro A50 Linux
+GenericName=Astro A50 Gen 3 headset settings
+Comment=Configure Astro A50 Gen 3 audio, EQ presets, microphone and sidetone
+Exec=astro-a50-linux
+Icon=astro-a50-linux
+Terminal=false
+Categories=Audio;AudioVideo;Settings;
+Keywords=Astro;A50;headset;equalizer;EQ;audio;
+StartupNotify=true
