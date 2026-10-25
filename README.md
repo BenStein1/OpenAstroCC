@@ -43,8 +43,7 @@ A clean clone without factory preset files will show Unnamed until a preset
 is imported or renamed.
 
 **Preset library:** Each EQ tab now has **Choose preset…** and **Save preset…**.
-Choose from the five protected factory Astro EQs, the bundled **Bass & Clarity**
-example (created from the provided custom EQ 3 screenshot), or custom presets in
+Choose from **Astro** factory presets or **Custom** presets, including the bundled **Bass & Clarity** curve (created from the provided custom EQ 3 screenshot) and your saved presets in
 `~/.local/share/astro-a50-linux/presets/` (or `$XDG_DATA_HOME`). The custom
 example uses +6/-2/0/+2/+4 dB at 90/406/783/4001/7001 Hz with 2.0-octave
 middle bands. Loading changes only the **editor**, not the headset. Editing
