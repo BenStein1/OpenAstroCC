@@ -62,7 +62,7 @@ def run(live):
         window.eq[1][0][0].setValue(before['slots'][1]['gains']['working'][0])
         assert window.draft()['slots'] == before['slots'], 'unchanged EQ should round-trip exactly'
         # Exercise real GUI name handlers without writing to the user's XDG config.
-        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {'XDG_CONFIG_HOME': home, 'XDG_DATA_HOME': home}):
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {'XDG_CONFIG_HOME': home, 'XDG_DATA_HOME': home, 'APPIMAGE': '/tmp/test.AppImage'}):
             with patch('a50_gui.QInputDialog.getText', return_value=('Night Gaming', True)):
                 window.rename_eq(2)
             assert window.eq_names[1] == 'Night Gaming'
@@ -167,8 +167,16 @@ def run(live):
             assert factory.read_bytes() == unchanged_factory
             window.populate(before)
             assert window.draft()['slots'] == before['slots']
+        from a50_about import AboutDialog, AudioSetupDialog
+        assert window.about_button.text() == 'About'
+        about = AboutDialog(window)
+        assert 'PyQt6' in about.notices.toPlainText()
+        setup = AudioSetupDialog(about)
+        assert not setup.install_button.isEnabled(), 'install must require preview'
+        setup.close()
+        about.close()
         window.close()
-        print('PASS: offline EQ bandwidth Narrow/1.0/Wide slider, raw precision, writes disabled')
+        print('PASS: offline EQ library, About/Notices and guarded audio setup controls')
         return
     try:
         widget = window.eq[1][0][0]

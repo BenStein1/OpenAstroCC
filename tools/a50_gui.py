@@ -879,13 +879,24 @@ class Window(QMainWindow):
             self.notice.setText('EQ name file could not be read; names will not be overwritten: ' + self.names_error)
         self.notice.setObjectName('hint')
         self.notice.setWordWrap(True)
-        layout.addWidget(self.notice)
+        footer = QHBoxLayout()
+        footer.addWidget(self.notice, 1)
+        self.about_button = QPushButton('About')
+        self.about_button.setToolTip('About, open-source notices and operating system audio setup')
+        self.about_button.clicked.connect(self.open_about)
+        footer.addWidget(self.about_button, 0, Qt.AlignmentFlag.AlignBottom)
+        layout.addLayout(footer)
         self.timer = QTimer(self)
         self.timer.setInterval(self.POLL_RETRY_MS)
         self.timer.timeout.connect(self.poll)
         self.timer.start()
         self.update_enabled()
         QTimer.singleShot(0, self.refresh)
+
+    def open_about(self):
+        from a50_about import AboutDialog
+        dialog = AboutDialog(self)
+        dialog.exec()
 
     def eq_display_names(self):
         names = []

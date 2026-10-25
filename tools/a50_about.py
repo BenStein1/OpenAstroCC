@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""About and guarded host-audio setup dialogs for the Astro A50 GUI.
+
+The setup action runs the existing a50_setup.py helper. Preview is read-only,
+and installation requires a separate explicit confirmation; no sudo, session
+restart, default device change or headset write happens here.
+"""
+import sys
+from pathlib import Path
+
+from PyQt6.QtCore import QProcess
+from PyQt6.QtWidgets import (
+    QDialog, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit,
+    QVBoxLayout, QMessageBox,
+)
+
+ROOT = Path(__file__).resolve().parent.parent
+NOTICES = ROOT / "docs/THIRD_PARTY_NOTICES.md"
+SETUP = Path(__file__).resolve().with_name("a50_setup.py")
+
+
+class AudioSetupDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("A50 audio setup")
+        self.resize(700, 500)
+        self.action = None
+        self.preview_ok = False
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(
+            "Checks the A50 Game 5.1, Voice and microphone endpoints. "
+            "Preview first; install only with your approval."))
+        self.output = QPlainTextEdit()
+        self.output.setReadOnly(True)
+        self.output.setPlainText(
+            "No changes have been made. Click Preview setup to inspect "
+            "your hardware and the proposed WirePlumber configuration.")
+        layout.addWidget(self.output, 1)
+        row = QHBoxLayout()
+        self.preview_button = QPushButton("Preview setup")
+        self.install_button = QPushButton("Install configuration…")
+        self.install_button.setEnabled(False)
+        close = QPushButton("Close")
+        row.addWidget(self.preview_button)
+        row.addWidget(self.install_button)
+        row.addStretch(1)
+        row.addWidget(close)
+        layout.addLayout(row)
+        self.preview_button.clicked.connect(self.preview)
+        self.install_button.clicked.connect(self.install)
+        close.clicked.connect(self.close)
+        self.process = QProcess(self)
+        self.process.finished.connect(self.completed)
+        self.process.errorOccurred.connect(self.process_failed)
+
+    def command(self, action):
+        if self.process.state() != QProcess.ProcessState.NotRunning:
+            return
+        self.action = action
+        self.preview_button.setEnabled(False)
+        self.install_button.setEnabled(False)
+        self.output.setPlainText("Checking A50 audio configuration…" if action == "preview"
+                                 else "Installing approved A50 configuration…")
+        self.process.start(sys.executable, [str(SETUP), action] +
+                           (["--yes"] if action == "install" else []))
+
+    def preview(self):
+        self.preview_ok = False
+        self.command("preview")
+
+    def install(self):
+        if not self.preview_ok:
+            return
+        choice = QMessageBox.question(
+            self, "Install A50 audio configuration?",
+            "Install the per-user WirePlumber A50 configuration shown in the preview?\n\n"
+            "The tool will refuse conflicting existing A50 configurations. "
+            "It will not change your system defaults or restart audio services. "
+            "A logout/login may be required to activate it.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if choice == QMessageBox.StandardButton.Yes:
+            self.preview_ok = False
+            self.command("install")
+
+    def completed(self, code, _exit_status):
+        output = self.process.readAllStandardOutput().data().decode("utf-8", "replace")
+        errors = self.process.readAllStandardError().data().decode("utf-8", "replace")
+        self.output.setPlainText((output + ("\n" if output and errors else "") + errors).strip()
+                                 or "No details returned.")
+        self.preview_ok = self.action == "preview" and code == 0
+        self.preview_button.setEnabled(True)
+        self.install_button.setEnabled(self.preview_ok)
+        if self.action == "install" and code == 0:
+            self.output.appendPlainText(
+                "\nConfiguration installed. Log out and in before verifying. "
+                "No audio services were restarted.")
+
+    def process_failed(self, _error):
+        self.output.setPlainText("Unable to launch the setup helper: " +
+                                 self.process.errorString())
+        self.preview_ok = False
+        self.install_button.setEnabled(False)
+        self.preview_button.setEnabled(True)
+
+    def closeEvent(self, event):
+        if self.process.state() != QProcess.ProcessState.NotRunning:
+            event.ignore()  # Do not abandon a running installation.
+        else:
+            event.accept()
+
+
+class AboutDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("About Astro A50 Linux")
+        self.resize(620, 490)
+        layout = QVBoxLayout(self)
+        title = QLabel("Astro A50 Gen 3 · Linux")
+        title.setStyleSheet("font-size: 17px; font-weight: 700;")
+        layout.addWidget(title)
+        subtitle = QLabel(
+            "Open-source hardware integration for the Astro A50 Gen 3. "
+            "Not affiliated with Astro Gaming or Logitech.")
+        subtitle.setWordWrap(True)
+        layout.addWidget(subtitle)
+        self.notices = QPlainTextEdit()
+        self.notices.setReadOnly(True)
+        try:
+            self.notices.setPlainText(NOTICES.read_text(encoding="utf-8"))
+        except OSError:
+            self.notices.setPlainText("Third-party notices unavailable; see docs/THIRD_PARTY_NOTICES.md.")
+        layout.addWidget(self.notices, 1)
+        row = QHBoxLayout()
+        audio = QPushButton("Audio setup…")
+        audio.clicked.connect(self.open_audio)
+        close = QPushButton("Close")
+        close.clicked.connect(self.accept)
+        row.addWidget(audio)
+        row.addStretch(1)
+        row.addWidget(close)
+        layout.addLayout(row)
+        self.audio_button = audio
+
+    def open_audio(self):
+        dialog = AudioSetupDialog(self)
+        dialog.exec()

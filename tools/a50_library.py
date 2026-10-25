@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Read-only bundled A50 presets and a separate, writable user preset library.
+"""Astro presets are protected; presets/custom is writable in a source checkout.
 
-The firmware knows three EQ slot numbers and numeric parameters, not file names.
-Bundled presets are NEVER overwritten by library operations.
+Packaged/read-only distributions save custom presets under the XDG user data
+folder instead. No special exclusions for bundled custom preset names.
 """
 from dataclasses import dataclass
 import configparser
@@ -19,27 +19,37 @@ import a50_names
 class Preset:
     name: str
     path: Path
-    source: str  # 'Astro', 'Custom' (bundled/read-only), or 'Mine' (user-writable)
+    source: str  # 'Astro' protected; 'Custom'/'Mine' user-editable
 
     @property
     def writable(self):
-        return self.source == "Mine"
+        return self.source != "Astro"
 
 
 def repo_root():
     return Path(__file__).resolve().parent.parent
 
 
-def custom_dir():
+def user_custom_dir():
     base = os.environ.get("XDG_DATA_HOME")
     return (Path(base) if base else Path.home() / ".local/share") / "astro-a50-linux/presets"
+
+
+def custom_dir():
+    """Use repo presets/custom when editable; use user data for AppImages."""
+    folder = repo_root() / "presets/custom"
+    if (not os.environ.get("APPIMAGE") and (repo_root() / ".git").exists()
+            and folder.is_dir() and not folder.is_symlink()
+            and os.access(folder, os.W_OK)):
+        return folder
+    return user_custom_dir()
 
 
 def preset_folders():
     root = repo_root()
     return ((root / "presets", "Astro"),
             (root / "presets/custom", "Custom"),
-            (custom_dir(), "Mine"))
+            (user_custom_dir(), "Mine"))
 
 
 def available_presets():
@@ -106,7 +116,7 @@ def custom_path(name):
 
 
 def save_custom(document, slot, name, overwrite=False):
-    """Explicit save to user's own folder only; never alters shipped presets.
+    """Save custom EQ to a writable custom folder; never modify Astro defaults.
 
     Never overwrite any file without an explicit overwrite=True. The temp file
     and destination share a filesystem; new saves use hardlink (O_EXCL-like)
@@ -133,4 +143,4 @@ def save_custom(document, slot, name, overwrite=False):
             os.link(temp, target)  # Atomic no-overwrite; fails if target exists.
     finally:
         temp.unlink(missing_ok=True)
-    return Preset(name, target, "Mine")
+    return Preset(name, target, "Custom" if target.parent == repo_root() / "presets/custom" else "Mine")
