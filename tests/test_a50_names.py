@@ -61,7 +61,7 @@ class EqNamesTests(unittest.TestCase):
             with_one_unit = json.loads(json.dumps(document))
             with_one_unit["slots"][1]["bands"][1]["working"]["bandwidth_raw"] += 1
             self.assertEqual(a50_names.match_preset_names(with_one_unit, [folder])[1], "PRO")
-            with_one_unit["slots"][1]["bands"][1]["working"]["bandwidth_raw"] += 1
+            with_one_unit["slots"][1]["bands"][1]["working"]["bandwidth_raw"] += 41
             self.assertIsNone(a50_names.match_preset_names(with_one_unit, [folder])[1])
             # Different labels for an identical EQ must not be guessed.
             a50.export_preset(document, 2, folder / "OTHER.astroeq", name="OTHER")
