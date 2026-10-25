@@ -5,7 +5,7 @@
 **OpenAstroCC application source code:** **GNU General Public License
 version 3 only (GPL-3.0-only)**. The complete terms are in the repository's
 [LICENSE](../LICENSE) and bundled as `licenses/LICENSE`. Source is available
-at https://github.com/BenStein1/astro-a50-linux. The license permits copying,
+at https://github.com/BenStein1/OpenAstroCC. The license permits copying,
 modification and redistribution, including commercial uses, on its terms.
 **There is no warranty or obligation to provide support.**
 
