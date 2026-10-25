@@ -706,13 +706,17 @@ def import_preset(document, slot, path):
     return validate_backup(result)
 
 
-def export_preset(document, slot, path):
+def export_preset(document, slot, path, name=None):
     validate_backup(document)
     A50Client._slot(slot)
     target = document["slots"][slot - 1]
     cp = configparser.ConfigParser()
     cp.optionxform = str
-    cp["General"] = {"Name": "A50 slot %d" % slot}
+    if name is None:
+        name = "A50 slot %d" % slot
+    if not isinstance(name, str) or not name.strip() or any(ord(c) < 32 for c in name):
+        raise ValueError("preset name must be nonempty text without control characters")
+    cp["General"] = {"Name": name.strip()}
     cp["Eq_Bands"] = {
         **{"Eq_Band_%d" % i: str(g) for i, g in enumerate(target["gains"]["working"], 1)},
         **{"Eq_Freq_Band_%d" % i: str(v["working"]["frequency"]) for i, v in enumerate(target["bands"], 1)},
