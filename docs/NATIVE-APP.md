@@ -7,16 +7,26 @@ UI (2026-10-25 redesign): dark themed window. Each EQ tab has an interactive
 graphic EQ: a log-frequency response curve (estimated with RBJ biquads at 48 kHz,
 not a measurement of the headset DSP) with draggable band nodes (vertical = gain,
 horizontal = frequency, mouse wheel on a bell = bandwidth), plus per-band gain
-sliders and exact frequency boxes. Bands 2–4 now use horizontal **Narrow ↔ Wide**
+sliders and editable frequency boxes (the up/down stepper arrows are hidden to
+avoid inconsistent rendering in packaged Qt; keyboard input and draggable
+EQ nodes still work). Bands 2–4 now use horizontal **Narrow ↔ Wide**
 octave-width sliders instead of six-decimal spin boxes: 1.0 octave is at the
 physical midpoint, with 0.10 octave (narrow) at the left and 3.0 (wide) at
 the right. The UI shows two decimals for readability but retains the exact
 4.12 raw hardware value in memory until the user actually edits the slider.
 Low/high shelf bands have no adjustable octave width. "Volume and balance" has sliders for
 Game/Voice balance, alert volume and the four stream levels; the microphone and
-dock pages use sliders too. Control semantics and the write path are unchanged.
+dock pages use sliders too. The settings workflow is unchanged: Test Current Settings writes to the
+headset's working memory with readback, while Save to headset is a separate,
+explicit persistent-sync action.
 The Game/Voice end labels follow the existing label order and are not yet
 confirmed against hardware. Offscreen check: `QT_QPA_PLATFORM=offscreen python3 tools/check_gui.py`.
+
+Use **Test Current Settings** to try the displayed EQ, microphone and dock
+parameters; this writes the headset's working state, **not a temporary audio
+preview that automatically reverts when the app closes**. You can choose a
+different preset or adjust controls and test again. Use **Save to headset**
+only when you want to persist the current working configuration.
 
 ## Preset picker and custom EQ library
 
@@ -34,7 +44,7 @@ The list has just two visible categories:
   AppImage or from a read-only location, saved presets go into XDG user data.
 
 Choosing a preset **only loads its values into the editor**. The headset is
-untouched until the existing **Write working settings** / **Save to headset**
+untouched until the existing **Test Current Settings** / **Save to headset**
 actions. For a preset previously read from the headset, the app matches its
 numeric settings to available preset files. Because Astro's Windows files
 round bandwidth, numeric identification tolerates up to 0.01 octave deviation;
@@ -106,7 +116,7 @@ include optional `eq_names`; older backups remain valid. No naming operation
 writes headset settings.
 
 Renaming a preset only changes computer-local metadata. EQ gain/frequency/
-bandwidth changes still require **Write working settings** and explicit
+bandwidth changes still require **Test Current Settings** and explicit
 **Save to headset** to persist to device storage. Failed/malformed local
 name files are not silently overwritten.
 
@@ -117,7 +127,7 @@ source, falling back to another A50 source) with a "Talking" indicator. While it
 runs, changing the sidetone slider, microphone EQ or noise gate writes them (working
 settings only) after a short pause, so you can leave it open and hear each change. **Stop test** (or closing the app) stops the
 capture. Other unwritten editor edits are kept in the editor and still
-need **Write working settings**.
+need **Test Current Settings**.
 
 The app reads three EQ slots, all five frequencies and the three bell bandwidths,
 dock defaults, current battery/charging, hardware balance and selected EQ slot.
@@ -130,10 +140,11 @@ window is active, and once whenever the window is activated; while disconnected 
 rescans every 3 s (a sysfs lookup, no USB traffic). **Refresh / reconnect** keeps
 looking for up to 12 s, since the headset can drop off USB for a few seconds after
 **Save to headset**. Polling is silent (the window is not greyed out or reloaded); only explicit Write/Save/Refresh grey the UI while they run. Disconnect disables writes; subsequent polls retry discovery and load
-a fresh snapshot before reenabling them. Physical unplug/reinsert still needs
+a fresh snapshot before re-enabling them. Physical unplug/reinsert still needs
 Ben's test; synthetic disconnect and host GUI reads are separate evidence.
 
-Edit controls, then **Write working settings**. Writes compare the last snapshot
+Edit controls, then **Test Current Settings** to apply the current values
+without persisting them. The app compares the last snapshot
 with the current hardware before touching it, save a fresh baseline privately
 under `artifacts/backups/`, set only changed fields, and verify readback. Failed
 working transactions attempt restoration from that transaction's baseline and
