@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# A private repository consumes hosted minutes. Cancel superseded PR/branch
+# builds so rapid pushes don't spend minutes building obsolete commits.
+concurrency:
+  group: appimage-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   appimage:
     name: AppImage x86_64 (Ubuntu 22.04)
