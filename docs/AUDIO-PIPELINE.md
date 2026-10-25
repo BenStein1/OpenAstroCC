@@ -87,8 +87,11 @@ Keep EE as the desktop stereo processor and preset editor. Save the liked EE
 preset, export it, and route the surround game directly to A50_EQ_51. The game
 must be excluded from EE processing through EE's application blocklist; otherwise
 EE's process-all-outputs policy can capture it again. The new filter's playback
-sets application.name=A50-Loopback, already present in this preset's blocklist;
-confirm EE actually honors that identity in the proposed graph before use.
+sets node.name and application.id to `A50-Loopback`, retaining
+application.name. EE 7.2.5 checks its blocklist against either `application_id`
+or node name in [stream_output_effects.cpp](https://github.com/wwmm/easyeffects/blob/v7.2.5/src/stream_output_effects.cpp);
+[pipe_manager.cpp](https://github.com/wwmm/easyeffects/blob/v7.2.5/src/pipe_manager.cpp)
+sets node name from `PW_KEY_NODE_NAME`.
 There is no live synchronization: subsequent EE edits require saving/exporting
 again and loading the new standalone filter client. This manual boundary keeps
 the initial solution small. Desktop EE use remains available; this is not an EE
@@ -117,22 +120,21 @@ content needs headroom (e.g. 11 dB attenuation before EQ in an approved trial).
 No attenuation was silently added to the preset export.
 
 This proves mapping and native DSP behavior, **not an EE-versus-PipeWire captured
-output null test**, full PipeWire graph construction, policy exclusion, game
-routing, headset sound, or Dolby transfer equivalence. Identical plugin/control
+output null test**, game routing, headset sound, or Dolby transfer equivalence. Identical plugin/control
 mapping strongly supports matching EQ transfer, but do not claim measured
 end-to-end equivalence. Baseline/preset/loaded-settings/source snapshots and
 results remain ignored under artifacts/surround-integration/eq-research/.
 
-Smallest next approved experiment is **silent graph validation only**, no more
-test audio: save current defaults/routing and EE exclusions; run the standalone
-client with `pipewire -c "$PWD/artifacts/surround-integration/eq-research/a50-eq-51.conf"`
-(no service restart); inspect six ports, no fallback, and six links to Game_51;
-exclude the game in EE, then inspect an already running real game's route at
-Ben's chosen time. Verify no EE stereo node intervenes and that Audioengine and
-other routes are untouched. Stop only that newly started client and restore the
-saved exclusions/routing on failure. No agent has performed or been authorized
-here to perform these live steps. No fresh listening test is needed to establish
-channel preservation; Ben's ordinary gameplay can supply sound acceptance later.
+Silent runtime validation after `6281d1d` found that application.name alone
+failed EE exclusion: capture appeared as `A50_EQ_51`; adding application.id
+alone also failed. Setting playback node.name exactly to `A50-Loopback` and
+application.id to the same value passed: six correct links reached
+`A50_Game_51`. The stream was paused (not running) and silent; no audio played,
+no EE settings or defaults changed. Candidate config:
+`artifacts/surround-integration/eq-research/a50-eq-51-node-check.conf`. Current
+A50_Game_51 default remains the user's setting. Next is ordinary real-game
+acceptance when Ben chooses. Any service/Plasma restart is user-owned; agents
+must not perform one.
 
 ## EQ after binaural rendering while keeping hardware Dolby
 
@@ -151,7 +153,19 @@ hardware rendering path. Onboard EQ might act after rendering, but its placement
 is unverified and its five bands do not reproduce this preset. Neither is a
 verified exact substitute for the pre-hardware six-channel EQ solution.
 
-## Primary sources
+## Hardware and DSP boundary
+
+The [official Gen 3 manual](https://cx-assets.logi.com/ASTRO/A50_ASTRO_PS4-Gen3.pdf)
+documents USB PC Game and the Dolby button. Astro's [2016 release](https://www.impulsegamer.com/astro-gaming-releases-significantly-updated-a50-wireless-gaming-headset-featuring-new-base-station/)
+describes Dolby Headphone 7.1. Observed `/proc/asound/card1/stream1` format is
+S16_LE, six channels, 48 kHz (FL/FR/FC/LFE/RL/RR). Generic Dolby Headphone is a
+multichannel-to-two-ear renderer, unlike Pro Logic II's two-channel matrix
+decoder. Public sources do not establish exact Gen 3 DSP order, Pro Logic II in
+stereo mode, or wireless codec. The [FCC filing](https://fccid.io/YQ6-TXDP01/Internal-Photos/Internal-photos-3083765)
+marks the block diagram/operation description confidential; it does not establish
+that processing must be inside the headset rather than the base.
+
+## Primary software sources
 
 - [EE 7.2.5 PipeManager: stereo virtual sink](https://github.com/wwmm/easyeffects/blob/v7.2.5/src/pipe_manager.cpp#L1615).
 - [EE 7.2.5 PluginBase: main FL/FR ports](https://github.com/wwmm/easyeffects/blob/v7.2.5/src/plugin_base.cpp#L254).

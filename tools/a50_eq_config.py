@@ -56,7 +56,8 @@ def make_config(preset):
         'filter.graph': {'nodes': nodes, 'inputs': ports('in'), 'outputs': ports('out')},
         'capture.props': {'node.name': 'A50_EQ_51', 'media.class': 'Audio/Sink',
                           'audio.position': CHANNELS, 'priority.session': 0, 'node.autoconnect': False},
-        'playback.props': {'node.name': 'output.A50_EQ_51', 'application.name': 'A50-Loopback',
+        'playback.props': {'node.name': 'A50-Loopback', 'application.name': 'A50-Loopback',
+                           'application.id': 'A50-Loopback',
                            'audio.position': CHANNELS,
                            'target.object': 'A50_Game_51', 'node.passive': True,
                            'node.dont-fallback': True, 'stream.dont-remix': True}

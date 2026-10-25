@@ -1,16 +1,16 @@
 # EQ / surround architecture checkpoint — 2026-10-24
 
-Astra-eq-channel-architecture traced EE 7.2.5 and 8.3.0: the effects path is
-stereo, even when its input stream negotiates six-channel PCM. Read-only loaded
-A2+ Bright settings match seven symmetric APO bell filters; Bass Loudness is
-bypassed. Prepared `tools/a50_eq_config.py` for the same installed LSP EQ on all
-five full-range 5.1 channels, LFE unity, targeting A50_Game_51. Offline native
-LV2 impulses/channel isolation and config parsing pass; live graph/policy/game
-acceptance remains open. About 10.36 dB peak EQ boost requires headroom in a
-future trial. No live changes, playback, installs, hardware writes or restarts.
-See `docs/AUDIO-PIPELINE.md` for source links, limits, desktop EE workflow and
-smallest next approved **silent** graph trial. Agents must never restart services
-or Plasma. Existing live remap routing and durability status below still apply.
+Astra-eq-channel-architecture traced EE 7.2.5 and 8.3.0: its effects path is
+stereo despite six-channel input. The prepared `tools/a50_eq_config.py` applies
+the installed LSP EQ to five full-range channels, leaves LFE unity, and targets
+A50_Game_51. Offline DSP checks pass. Post-`6281d1d` silent runtime validation
+found that playback node.name plus application.id must both be `A50-Loopback`
+for EE exclusion; the six correct paused links to Game_51 then passed. No audio
+was played, no EE settings changed, and defaults stayed unchanged. Next is
+ordinary real-game acceptance. Ben confirmed the picker is clean and agents must
+not restart Plasma or audio services. About 10.36 dB peak EQ boost needs
+headroom. See `docs/AUDIO-PIPELINE.md`; existing remap routing/durability status
+below still applies.
 
 # Mic/stream integration verified — 2026-10-24
 
