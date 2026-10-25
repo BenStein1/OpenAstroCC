@@ -23,12 +23,17 @@ available on the host. It downloads the current maintained x86_64
 - `dist/OpenAstroCC-x86_64.AppImage`
 - `dist/OpenAstroCC-x86_64.AppImage.sha256`
 
-For a CI-tested download, open **GitHub Actions → Build OpenAstroCC
-AppImage → successful run → Artifacts → OpenAstroCC-x86_64**. The
-`.github/workflows/appimage.yml` workflow runs offline tests, packages the
-real executable, performs an offscreen AppImage smoke test, and uploads the
-files as an artifact. Downloading the artifact doesn't publish a public
-release automatically.
+For the latest versioned binary, use
+[GitHub Releases](https://github.com/BenStein1/OpenAstroCC/releases) once a
+tagged release is available. The `.github/workflows/appimage.yml` workflow
+runs hardware-independent tests, packages the executable, runs offline
+AppImage smoke tests, and uploads the binary plus SHA-256 checksum as a
+short-lived Actions artifact on **every push to main**.
+
+On a version tag such as `v0.1.0`, the same tested build additionally
+creates a real GitHub Release with these two files. Early `v0.*` versions
+are marked as pre-releases. Failed tests/builds never publish a release.
+See [Release process](RELEASING.md) for tagging and validation.
 
 ## Running
 
