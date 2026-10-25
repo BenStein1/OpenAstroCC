@@ -27,8 +27,11 @@ The list has just two visible categories:
 - **Custom:** includes the bundled `Bass & Clarity` custom EQ at
   `presets/custom/Bass & Clarity.astroeq` and your personal presets in
   `$XDG_DATA_HOME/astro-a50-linux/presets/` (default
-  `~/.local/share/astro-a50-linux/presets/`). The bundled Bass & Clarity
-  file is read-only; only personal custom files can be overwritten.
+  `~/.local/share/astro-a50-linux/presets/`). **In a writable Git checkout,
+  `presets/custom/` is the default save location**; all files in Custom,
+  including Bass & Clarity, can be overwritten with confirmation. The five
+  factory presets under `presets/` remain protected. When running as an
+  AppImage or from a read-only location, saved presets go into XDG user data.
 
 Choosing a preset **only loads its values into the editor**. The headset is
 untouched until the existing **Write working settings** / **Save to headset**
@@ -43,14 +46,29 @@ This marker is about the preset *file*, independent of whether changes have
 been written to the headset. **Save preset…** saves a separate `.astroeq`
 file in your personal **Custom** library, prompting for a name. When editing a previously selected
 personal custom preset, it asks whether to overwrite **that file** or save
-as a new one. Overwrites require an explicit affirmative answer. Bundled
-Astro factory and bundled custom preset files are never overwritten, and preset-file saving
-never sends a USB command.
+as a new one. Overwrites require explicit approval. Factory Astro files are
+never overwritten; custom files are writable when their directory is writable.
+Preset-file saving never sends a USB command.
 
 The bundled Bass & Clarity custom preset rounds the original 1.99-octave bell
 to exactly **2.00**. Its file is available immediately in the dropdown;
 it is not silently written into the owner's existing headset slot. Select
 the custom preset, then use the existing headset-write controls if desired.
+
+## About / third-party notices / audio setup
+
+A small **About** button is anchored at the lower-right of the main window,
+separate from the EQ controls. Its dialog displays
+`docs/THIRD_PARTY_NOTICES.md` (notably PyQt6, Qt, Python, PipeWire and
+WirePlumber license references and outstanding release checklist). **Audio
+setup…** opens a separate dialog that uses the existing standalone
+`tools/a50_setup.py` to preview A50 endpoint detection and proposed
+WirePlumber configuration. **Install configuration…** stays disabled until
+a successful preview and requires an explicit confirmation. The helper
+refuses conflicts rather than overwriting Ben's existing audio setup; it
+does not require sudo, change default speakers/microphones, restart audio
+services or write to the headset. Activation may require logging out/in.
+Both operations run asynchronously so the interface remains responsive.
 
 ## EQ slot names (local metadata)
 
