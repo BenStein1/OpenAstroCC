@@ -345,7 +345,7 @@ class BandwidthSlider(QWidget):
         self.slider.blockSignals(True)
         self.slider.setValue(min(100, max(0, self._position_for(self.value()))))
         self.slider.blockSignals(False)
-        self.readout.setText('%.2f oct' % self.value())
+        self.readout.setText('%g oct' % round(self.value(), 1))
         self.setToolTip('Bandwidth %.2f octaves (stored exactly as 4.12 value %d)' %
                         (self.value(), raw))
         if raw != old:
@@ -952,6 +952,19 @@ class Window(QMainWindow):
         combo.setCurrentIndex(0)
         if preset is None:
             return
+        origin = self.eq_origin_signatures[slot - 1]
+        if (origin is not None and self.document is not None and
+                self.editor_slot_signature(slot) != origin):
+            answer = QMessageBox.question(
+                self, 'Unsaved EQ edits',
+                'Save the edited preset before loading another one?\n'
+                'Yes = Save preset, No = Discard edits, Cancel = Keep editing.',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No |
+                QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Cancel)
+            if answer == QMessageBox.StandardButton.Cancel:
+                return
+            if answer == QMessageBox.StandardButton.Yes and not self.save_library_preset(slot):
+                return
         try:
             imported = a50.import_preset(self.draft(), slot, str(preset.path))
             updated = list(self.eq_names)
@@ -1014,6 +1027,7 @@ class Window(QMainWindow):
             self.refresh_library_pickers()
             self.refresh_eq_names()
             self.notice.setText('Saved “%s” in your preset library. The headset was not changed.' % name)
+            return True
         except (OSError, ValueError, KeyError, TypeError) as exc:
             self.notice.setText('Could not save preset: ' + str(exc))
 
