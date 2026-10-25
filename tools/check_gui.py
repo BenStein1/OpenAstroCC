@@ -52,6 +52,10 @@ def run(live):
         assert width.rawValue() == 409
         width.slider.setValue(50)
         assert width.rawValue() == 4096, 'center must be exactly 1.0 octave'
+        width.slider.setValue(48)
+        assert width.slider.value() == 50 and width.rawValue() == 4096, 'snap left of center'
+        width.slider.setValue(52)
+        assert width.slider.value() == 50 and width.rawValue() == 4096, 'snap right of center'
         width.slider.setValue(100)
         assert width.rawValue() == 12288, 'right end must be 3.0 octaves'
         width.setRawValue(original_raw)
@@ -62,7 +66,8 @@ def run(live):
             with patch('a50_gui.QInputDialog.getText', return_value=('Night Gaming', True)):
                 window.rename_eq(2)
             assert window.eq_names[1] == 'Night Gaming'
-            assert 'Night Gaming' in window.tabs.tabText(1)
+            assert window.tabs.tabText(1) == 'EQ 2'
+            assert 'Night Gaming' in window.eq_name_labels[1].text()
             assert a50_names.load_names()[1] == 'Night Gaming'
             preset_path = Path(home) / 'preset.astroeq'
             with patch('a50_gui.QFileDialog.getSaveFileName',
@@ -75,7 +80,8 @@ def run(live):
                        return_value=(str(imported), 'Astro EQ (*.astroeq)')):
                 window.preset(2, True)
             assert window.eq_names[1] == 'Imported from Windows'
-            assert 'Imported from Windows' in window.tabs.tabText(1)
+            assert window.tabs.tabText(1) == 'EQ 2'
+            assert 'Imported from Windows' in window.eq_name_labels[1].text()
             assert a50_names.load_names()[1] == 'Imported from Windows'
             backup_path = Path(home) / 'backup.json'
             with patch('a50_gui.QFileDialog.getSaveFileName',
@@ -89,6 +95,17 @@ def run(live):
                 window.load_backup()
             assert window.eq_names[1] == 'Imported from Windows'
             assert window.draft()['slots'] == before['slots']
+            # A hardware numeric match may suggest a label, but never overrides
+            # the explicit name the user chose (including an imported label).
+            matches = Path(home) / 'matches'
+            matches.mkdir()
+            a50.export_preset(before, 2, matches / 'PRO.astroeq', name='PRO')
+            auto = a50_names.match_preset_names(before, [matches])
+            assert auto[1] == 'PRO'
+            window.eq_auto_names = auto
+            window.refresh_eq_names()
+            assert window.eq_display_names()[1] == 'Imported from Windows'
+            assert window.tabs.tabText(1) == 'EQ 2'
         window.close()
         print('PASS: offline EQ bandwidth Narrow/1.0/Wide slider, raw precision, writes disabled')
         return

@@ -48,6 +48,27 @@ class EqNamesTests(unittest.TestCase):
             self.assertEqual(a50.import_preset(document, 1, path)["slots"],
                              document["slots"])
 
+    def test_recognize_only_unambiguous_numeric_preset_matches(self):
+        root = Path(__file__).resolve().parents[1]
+        document = json.loads((root / "evidence/a50-baseline.json").read_text())
+        with tempfile.TemporaryDirectory() as dirname:
+            folder = Path(dirname)
+            a50.export_preset(document, 2, folder / "PRO.astroeq", name="PRO")
+            a50.export_preset(document, 3, folder / "STUDIO.astroeq", name="STUDIO")
+            names = a50_names.match_preset_names(document, [folder])
+            self.assertEqual(names, [None, "PRO", "STUDIO"])
+            # Allow the one raw hardware unit of Windows-format rounding.
+            with_one_unit = json.loads(json.dumps(document))
+            with_one_unit["slots"][1]["bands"][1]["working"]["bandwidth_raw"] += 1
+            self.assertEqual(a50_names.match_preset_names(with_one_unit, [folder])[1], "PRO")
+            with_one_unit["slots"][1]["bands"][1]["working"]["bandwidth_raw"] += 1
+            self.assertIsNone(a50_names.match_preset_names(with_one_unit, [folder])[1])
+            # Different labels for an identical EQ must not be guessed.
+            a50.export_preset(document, 2, folder / "OTHER.astroeq", name="OTHER")
+            self.assertIsNone(a50_names.match_preset_names(document, [folder])[1])
+            self.assertEqual(a50_names.match_preset_names(document, [folder])[2], "STUDIO")
+            self.assertEqual(a50_names.match_preset_names(document, [folder / "absent"]), [None] * 3)
+
     def test_existing_backups_allow_local_name_metadata(self):
         root = Path(__file__).resolve().parents[1]
         document = json.loads((root / "evidence/a50-baseline.json").read_text())

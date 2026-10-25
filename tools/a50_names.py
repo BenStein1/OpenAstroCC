@@ -3,6 +3,7 @@
 
 These names are application metadata. They are NOT sent to the headset.
 """
+import configparser
 import json
 import os
 from pathlib import Path
@@ -65,3 +66,79 @@ def save_names(names):
         if temp is not None:
             Path(temp).unlink(missing_ok=True)
     return validated
+
+
+# Never ship the proprietary Astro preset collection in GitHub. The original
+# .astroeq files are available only when the user already has a local copy.
+# Archived Windows app assets may exist in the ignored artifacts/ working tree.
+def preset_directories():
+    root = Path(__file__).resolve().parent.parent
+    dirs = [
+        root / "artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ",
+        root / "artifacts/appdata-classic/Astro A50 Wireless/Astro EQ",
+        root / "artifacts/appdata-store/ASTRO A50 Wireless",
+        Path.home() / ".local/share/astro-a50-linux/presets",
+    ]
+    additional = os.environ.get("ASTRO_A50_EQ_DIRS", "")
+    dirs.extend(Path(value).expanduser() for value in additional.split(os.pathsep) if value)
+    return dirs
+
+
+def match_preset_names(document, directories=None):
+    """Read existing .astroeq files and identify unambiguous hardware slot matches.
+
+    A USB EQ bank contains gains, frequencies and bell widths, not text names.
+    For a match all 13 numeric EQ parameters must agree: gains exactly and
+    frequency/bandwidth to within one hardware unit for quantization tolerance.
+    Identical numeric curves with different names are ambiguous and NOT named.
+    This performs local file reads only and never modifies device/settings.
+    """
+    import a50
+
+    if not isinstance(document, dict) or not isinstance(document.get("slots"), list):
+        return [None, None, None]
+    preset_paths = []
+    for folder in (directories if directories is not None else preset_directories()):
+        folder = Path(folder)
+        if folder.is_dir():
+            preset_paths.extend(sorted(folder.glob("*.astroeq")))
+    references = []
+    seen_paths = set()
+    for path in preset_paths:
+        resolved = str(path.resolve())
+        if resolved in seen_paths:
+            continue
+        seen_paths.add(resolved)
+        try:
+            preset = a50.load_astroeq(path)
+            name = normalize_name(preset["name"])
+            gains = tuple(preset["gains"])
+            freqs = tuple(preset["freqs"])
+            widths = tuple(round(preset["bandwidths"][n] * 4096)
+                           for n in (2, 3, 4))
+            if len(gains) != 5 or len(freqs) != 5:
+                continue
+            references.append((name, gains, freqs, widths))
+        except (OSError, ValueError, KeyError, TypeError, IndexError, configparser.Error):
+            continue
+
+    identified = []
+    for slot in document["slots"][:3]:
+        try:
+            gains = tuple(slot["gains"]["working"])
+            freqs = tuple(band["working"]["frequency"] for band in slot["bands"])
+            widths = tuple(slot["bands"][n - 1]["working"]["bandwidth_raw"]
+                           for n in (2, 3, 4))
+            if len(gains) != 5 or len(freqs) != 5:
+                raise ValueError("unexpected slot shape")
+        except (TypeError, ValueError, KeyError, IndexError):
+            identified.append(None)
+            continue
+        matches = {
+            name for name, g, f, w in references
+            if gains == g
+            and all(abs(a - b) <= 1 for a, b in zip(freqs, f))
+            and all(abs(a - b) <= 1 for a, b in zip(widths, w))
+        }
+        identified.append(next(iter(matches)) if len(matches) == 1 else None)
+    return (identified + [None] * 3)[:3]
