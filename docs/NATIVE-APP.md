@@ -29,7 +29,7 @@ a schema-v2 device also the six sliders and microphone EQ/noise gate, shown on
 the Microphone and Stream mix tabs (disabled for an offline v1 backup). Every
 transaction rediscovers the A50, validates the opened fd's USB identity, takes
 an exclusive cooperative lock, and closes it on completion. Polling is five
-seconds. Disconnect disables writes; subsequent polls retry discovery and load
+seconds and is silent (the window is not greyed out or reloaded); only explicit Write/Save/Refresh grey the UI while they run. Disconnect disables writes; subsequent polls retry discovery and load
 a fresh snapshot before reenabling them. Physical unplug/reinsert still needs
 Ben's test; synthetic disconnect and host GUI reads are separate evidence.
 

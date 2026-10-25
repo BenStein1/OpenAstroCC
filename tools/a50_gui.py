@@ -470,6 +470,7 @@ class Window(QMainWindow):
         self.offline = offline
         self.smoke = smoke
         self.busy = False
+        self.quiet = False
         self.done_message = None
         self.testing = False
         self.pending = None
@@ -675,18 +676,21 @@ class Window(QMainWindow):
         return spin
 
     def update_enabled(self):
+        # Quiet transactions (status polling, sidetone-test writes) keep the UI as is instead of greying it out.
+        busy = self.busy and not self.quiet
         for name, button in self.buttons.items():
-            button.setEnabled(not self.busy and (name == 'Refresh / reconnect' or self.document is not None))
-        self.buttons['Write working settings'].setEnabled(not self.busy and self.connected and not self.offline)
-        self.buttons['Save to headset'].setEnabled(not self.busy and self.connected and not self.offline)
-        self.sidetone_test.setEnabled(self.testing or not self.busy and self.connected and not self.offline
+            button.setEnabled(not busy and (name == 'Refresh / reconnect' or self.document is not None))
+        self.buttons['Write working settings'].setEnabled(not busy and self.connected and not self.offline)
+        self.buttons['Save to headset'].setEnabled(not busy and self.connected and not self.offline)
+        self.sidetone_test.setEnabled(self.testing or not busy and self.connected and not self.offline
                                       and self.document is not None and self.document['schema'] == 'astro-a50-gen3-v2')
-        self.tabs.setEnabled(not self.busy and self.document is not None)
+        self.tabs.setEnabled(not busy and self.document is not None)
 
-    def run(self, action, done):
+    def run(self, action, done, quiet=False):
         if self.busy:
             return
         self.busy = True
+        self.quiet = quiet
         self.update_enabled()
         job = Job(action, self)
         self.jobs.add(job)
@@ -698,6 +702,7 @@ class Window(QMainWindow):
     def finished(self, job):
         self.jobs.discard(job)
         self.busy = False
+        self.quiet = False
         self.update_enabled()
         job.deleteLater()
 
@@ -808,7 +813,7 @@ class Window(QMainWindow):
         def read():
             with a50.A50Client() as client:
                 return client.status()
-        self.run(read, self.show_status)
+        self.run(read, self.show_status, quiet=True)
 
     def toggle_sidetone_test(self):
         if self.testing:
@@ -881,15 +886,14 @@ class Window(QMainWindow):
             self.sidetone_timer.start()
             return
         level = self.sidetone.value()
-        self.pending = self.draft()
         target = copy.deepcopy(self.document)
         target['sliders']['sidetone']['working'] = level
         target['microphone']['eq'] = self.mic_eq.currentIndex()
         target['microphone']['noise_gate']['working'] = a50.NOISE_GATE_PACKETS[self.noise_gate.currentIndex()].hex()
-        self.apply(target, 'Test running: sidetone %d%%, mic EQ %s, noise gate %s written (nothing saved). Talk to hear it.'
+        self.apply(target, quiet=True, message='Test running: sidetone %d%%, mic EQ %s, noise gate %s written (nothing saved). Talk to hear it.'
                    % (level, self.mic_eq.currentText(), self.noise_gate.currentText()))
 
-    def apply(self, target=None, message=None):
+    def apply(self, target=None, message=None, quiet=False):
         self.done_message = message
         target = target or self.draft()
         displayed = copy.deepcopy(self.document)
@@ -897,7 +901,15 @@ class Window(QMainWindow):
             if not a50.same_settings(before, displayed):
                 raise a50.EqReadError('Settings changed since refresh; refresh before writing.')
             a50.restore_working(client, target)
-        self.run(lambda: a50.change_with_backup(action), self.changed)
+        self.run(lambda: a50.change_with_backup(action), self.changed_quietly if quiet else self.changed, quiet)
+
+    def changed_quietly(self, result):
+        # The editor already shows these values; just advance the device baseline without repopulating.
+        document, _directory = result
+        self.pending = None
+        self.document = copy.deepcopy(document)
+        self.notice.setText(self.done_message or 'Readback verified.')
+        self.done_message = None
 
     def changed(self, result):
         document, directory = result
