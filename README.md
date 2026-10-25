@@ -55,6 +55,10 @@ Proprietary app artifacts and private captures stay ignored. No raw-command,
 firmware or reset control. Scope is A50-specific: the `pro-audio` profile pin
 and the 5.1/mono remap config are installed under
 `~/.config/wireplumber/wireplumber.conf.d/` and
-`~/.config/pipewire/pipewire-pulse.conf.d/`; the system default sink/source
-(Audioengine speakers / webcam mic) is untouched, and no PipeWire/WirePlumber
-service was restarted to apply them live.
+`~/.config/pipewire/pipewire-pulse.conf.d/`, applied live without restarting
+any PipeWire/WirePlumber service. The system default sink/source (Audioengine
+speakers / webcam mic) are confirmed correct as of this README's last update,
+but briefly flipped during the surround-integration work below and had to be
+caught and reverted — see RESUME.md's "Priority / default-sink incident" for
+why, and the installed `priority.session = 0` node rules in
+`config/51-astro-a50-pro-audio.conf` for the real (restart-gated) fix.

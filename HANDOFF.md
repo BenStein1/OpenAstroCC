@@ -249,8 +249,21 @@ it, silently (device opened paused, never unpaused). `pw-link -l` confirms the
 6 ports are 1:1-linked straight through to `pro-output-1`'s physical playback
 ports, no shuffling. `tools/a50_audio.py --verify` is the repeatable check.
 The two old `a50-loopback-{game,voice}.service` units (both already stopped by
-Ben) are now `disabled`. System default sink/source are untouched (Audioengine
-speakers / webcam mic). Still open: KDE's volume-applet hide list
+Ben) are now `disabled`.
+
+**Default sink/source incident — read RESUME.md "Priority / default-sink
+incident" for the full story before touching defaults again.** During
+testing, module load/unload churn briefly flipped the system default to
+`A50_Game_51`/`A50_Mic`; caught and reverted (confirmed back to Audioengine/
+webcam at session end). Root cause: ACP gives the raw A50 ports priority
+values that already tie or outrank the real defaults, independent of this
+fix. Mitigated for *today* only by the explicit `pactl set-default-*` pin
+above; the real fix (`priority.session = 0` on all four A50 node rules in
+`config/51-astro-a50-pro-audio.conf`) is installed but inactive until
+WirePlumber's next restart. A `pw-loopback`-based alternative (which could
+set priority correctly in one shot) was tried and reverted: it broke
+`SDL_OpenAudioDevice` via the pulseaudio driver outright, so `module-remap-sink`/
+`-source` is what's actually shipped. Still open: KDE's volume-applet hide list
 (`PulseObjectFilterModel.qml`, root-owned + dpkg-diverted) would need Ben's
 sudo and a plasmashell restart to actually hide the raw `A50 Pro`/`A50 Pro 1`
 nodes and `A50_Voice` from the tray in favor of `A50 Game 5.1` — a reviewable
