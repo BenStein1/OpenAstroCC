@@ -1,3 +1,59 @@
+# OpenAstroCC — current verification checkpoint (2026-10-25)
+
+**Latest user-confirmed status.** This checkpoint supersedes older "pending" or
+"not applied" notes below. This is a report from Ben's live hardware use, not
+a new automated probe or change to USB, audio services, or settings.
+
+## Confirmed working by Ben
+
+- **Sidetone:** Audible control works using **Test Current Settings**, and
+  **Save to headset** also applies it successfully.
+- **Microphone EQ:** Bright/Airy/Warm selections work audibly.
+- **Microphone noise gate:** Home/Streaming/Tournament/Night changes work.
+- **Battery:** Battery level and charging/not-charging indication work,
+  including charging-state transitions.
+- **Game/Voice split and hardware balance:** Both streams work, including
+  two separately routed applications; physical Game/Voice buttons adjust
+  their relative mix correctly.
+- **Dolby hardware switch:** Button switches actual playback between stereo
+  and surround with the configured A50 six-channel Game audio path.
+- **Saved headset settings persist:** Ben confirmed saved settings survive an
+  actual headset off/on power cycle. Treat **user-observed persistence as
+  COMPLETE**. No need to experiment with an unverified sync packet to re-prove it.
+- **KDE volume tray cleanup:** Applied; Ben confirms only the intended aggregate
+  audio devices appear in the KDE volume menu. The historical pending diff
+  described below is **no longer a task**.
+- **Physical mic boom mute:** Flipping the boom up mutes the microphone, as it
+  always has at the hardware level (separate from software mute-status readback).
+
+## Deferred / not tested (no work authorized now)
+
+1. **Dock LEDs:** Dock brightness setting's *visible effect* untested (LEDs
+   very dim even at maximum; headset fully charged during discussion).
+   **Alert/beep volume:** No specific audible comparison yet.
+2. **Headset state in OpenAstroCC:** Does the app detect/display physical mic
+   flip mute, physical Dolby mode, or wireless headset link/disconnect/reconnect?
+   All three **UNTESTED**; 0x72 field_id1 remains unproven for these statuses.
+3. **USB unplug/reinsert:** Whether the running app reconnects automatically
+   without restart is **UNTESTED**.
+4. **Installed audio configuration after restart:** WirePlumber/PipeWire
+   configurations are installed and the live Game/Voice/5.1 routing works, but
+   Ben has **not** logged out or rebooted to confirm clean-start behavior.
+   Startup module ordering and defaults should be verified when Ben later
+   chooses to restart. **Do not restart audio services or Plasma without
+   explicit approval.**
+
+**Sync protocol distinction:** Prior reversible protocol tests did not
+transmit 0x61 (sync). That particular opcode remains untested by this
+project; it does **not** negate Ben's confirmed real-world save/power-cycle
+persistence. Do not send experimental sync writes solely for this checklist.
+
+**User decision (2026-10-25):** All remaining checks are deferred. Avoid
+unnecessary work, invasive tests, configuration changes, or demands on Ben
+while he has a migraine. Resume only when he asks.
+
+---
+
 # EQ / surround architecture checkpoint — 2026-10-24
 
 Astra-eq-channel-architecture traced EE 7.2.5 and 8.3.0: its effects path is
@@ -6,8 +62,9 @@ the installed LSP EQ to five full-range channels, leaves LFE unity, and targets
 A50_Game_51. Offline DSP checks pass. Post-`6281d1d` silent runtime validation
 found that playback node.name plus application.id must both be `A50-Loopback`
 for EE exclusion; the six correct paused links to Game_51 then passed. No audio
-was played, no EE settings changed, and defaults stayed unchanged. Next is
-ordinary real-game acceptance. Ben confirmed the picker is clean and agents must
+was played, no EE settings changed, and defaults stayed unchanged. Subsequently Ben confirmed real per-app Game/Voice mixing and physical
+Dolby playback. The current acceptance checkpoint at the top supersedes this
+old next-step instruction. Ben confirmed the picker is clean and agents must
 not restart Plasma or audio services. About 10.36 dB peak EQ boost needs
 headroom. See `docs/AUDIO-PIPELINE.md`; existing remap routing/durability status
 below still applies.
@@ -28,8 +85,9 @@ Remaining gates: first-launch EasyEffects/stream-restore race for new app names;
 PipeWire-Pulse startup can race A50 master enumeration; native WirePlumber rules
 are installed but have never been activated by a fresh process; KDE tray hide
 filter was installed by the supervisor after Ben reported a Plasma restart
-with duplicate outputs still visible. Installed file matches the reviewed
-replacement byte-for-byte; another Plasma refresh is awaiting approval.
+with duplicate outputs still visible. That was the 2026-10-24 status; Ben
+confirmed on 2026-10-25 that the KDE tray is cleaned up, and no further
+Plasma refresh is pending for this issue.
 The reviewed filter retains Audioengine A2+ and A50 Game 5.1 outputs,
 and A50 Mic as the headset input; raw A50 devices and Voice are hidden. The native node rules change maps to FL/FR/... while
 `15-astro-a50-remap.conf` still expects AUX master maps, so do not run these
@@ -174,8 +232,7 @@ don't re-enable on next boot): `a50-loopback-game.service`,
 `a50-loopback-voice.service`. `~/.config/pipewire/pipewire.conf.d/a50-virtual-sinks.disabled`
 left alone (already inert by filename, kept as backup per prior instruction).
 
-**One remaining manual step, not applied here (needs Ben's sudo + a plasmashell
-restart, both outside this worker's scope):** Ben has a real, local, diverted
+**Historical note from 2026-10-24 (now complete; DO NOT reapply blindly):** Ben has a real, local, diverted
 KDE Plasma volume-applet hide list at
 `/usr/lib/x86_64-linux-gnu/qt6/qml/org/kde/plasma/private/volume/PulseObjectFilterModel.qml`
 (installed via `dpkg-divert`, original alongside as `.qml.distrib` — this is
@@ -327,23 +384,37 @@ existing loopback services to become real Game/Voice paths: their
 `target.object` would also need to point at the new pro-output-0/pro-output-1
 sinks -- that edit is outside this repo and still Ben's call.
 
-## Remaining work — software/persistence/per-app routing
+## Remaining work — software/persistence/per-app routing (reconciled 2026-10-25)
 
-Software implementation and reversible CLI+GUI verification are done for EQ,
-dock defaults, mic and stream controls (see "Mic/stream integration — VERIFIED"
-above and docs/FEATURES.md). Physical Game/Voice/Dolby playback now verified.
-What's left:
+See the **current verification checkpoint at the top** for Ben's direct
+acceptance reports. Keep verified items closed; do not rerun tests just
+because earlier notes below used "pending."
 
-1. **Pending physical tests:** dock brightness/alert-volume listening, sidetone/mic-EQ/noise-gate audibility and recording, battery charging transition, physical mic flip/mute/link interaction, unplug/reinsert, per-app stream mix audibility.
+1. **Dock brightness effect and alert volume:** both **UNTESTED** physically.
+2. **Sidetone, mic EQ, noise gate:** **DONE**, audible/working in the app;
+   sidetone also verified for temporary test and headset save.
+3. **Battery level/charging transition:** **DONE**.
+4. **Physical mic flip-to-mute:** Hardware mute **DONE**; application display
+   and software status semantics **UNTESTED**.
+5. **Dolby:** Stereo/surround hardware/audio behavior **DONE**; app-side status
+   mapping/display **UNTESTED**, including unproven 0x72 field_id1.
+6. **Wireless headset link status:** App-side detection/display **UNTESTED**.
+7. **USB unplug/reinsert:** App reconnect without restart **UNTESTED**.
+8. **Per-app stream routing and Game/Voice mixing:** **DONE** with two
+   applications and hardware balance buttons. Six-channel playback/Dolby
+   behavior confirmed. The old loopback user services remain documented as
+   disabled. Audioengine system default and webcam microphone were preserved
+   at the last documented inspection; check defaults after a future reboot.
+9. **Saved headset settings survive power-cycle:** **DONE** (Ben physically
+   verified). Specific 0x61 protocol command remains intentionally untested;
+   no sync experiment is required for practical acceptance.
+10. **Installed WirePlumber/PipeWire remap startup durability:** **UNTESTED**
+    after logout/reboot; configurations installed and live behavior currently
+    works. Any fresh-start testing requires Ben's approval.
+11. **KDE volume tray hide-list:** **DONE**; applied and Ben confirms only
+    aggregate audio devices visible. Old diff is historical reference, not
+    an outstanding instruction.
 
-2. **Persistence:** `sync` (`0x61`) has never been sent in this project. Test it
-   only with a fresh full baseline, confirm working==stored readback, then a
-   real power-cycle to prove persistence — needs Ben physically present.
-
-3. **Software-side Dolby/mic-flip/headset-link status mapping:** Physical Dolby toggle confirmed functional by Ben's listening comparison. Software status semantics remain unresolved; `0x72` field_id1 is not a proven Dolby/mute/link indicator. Further static analysis or correlated live interaction can investigate this.
-
-4. **Per-app stream routing / surround — DONE**, see "Normal-game 5.1 surround" above. The old external Game/Voice loopback services are `disabled` (were already stopped). Normal system-default routing is unchanged; Audioengine remains the default sink, A50 devices are explicit-select only.
-
-5. **Config installation/reboot persistence — installed, restart-to-take-effect untested.** `config/51-astro-a50-pro-audio.conf` and `config/15-astro-a50-remap.conf` are both now installed under `~/.config/wireplumber/wireplumber.conf.d/` and `~/.config/pipewire/pipewire-pulse.conf.d/` respectively, and are also live-applied right now (hot, via `pactl`/already-active profile). Neither WirePlumber nor pipewire-pulse was restarted to test that the installed files alone (fresh process start, no prior `pactl` commands) reproduce the same state — that needs an actual logout/reboot or an explicit restart Ben approves.
-
-6. **KDE tray hide-list — reviewable diff prepared, not applied.** See "Normal-game 5.1 surround" above: `artifacts/surround-integration/PulseObjectFilterModel.qml.diff` against Ben's real, local, dpkg-diverted `PulseObjectFilterModel.qml`. Needs Ben's sudo + a plasmashell restart/logout; cosmetic only.
+**No further action requested at this checkpoint.** Do not run hardware
+writes, audio service restarts, Plasma restarts, or disruptive tests without
+fresh permission.
