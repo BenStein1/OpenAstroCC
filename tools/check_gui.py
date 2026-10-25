@@ -3,12 +3,15 @@
 import argparse
 import copy
 import json
+import os
+import tempfile
 import time
 from pathlib import Path
 from unittest.mock import patch
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtTest import QTest
 import a50
+import a50_names
 from a50_gui import Window
 
 
@@ -54,6 +57,38 @@ def run(live):
         width.setRawValue(original_raw)
         window.eq[1][0][0].setValue(before['slots'][1]['gains']['working'][0])
         assert window.draft()['slots'] == before['slots'], 'unchanged EQ should round-trip exactly'
+        # Exercise real GUI name handlers without writing to the user's XDG config.
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {'XDG_CONFIG_HOME': home}):
+            with patch('a50_gui.QInputDialog.getText', return_value=('Night Gaming', True)):
+                window.rename_eq(2)
+            assert window.eq_names[1] == 'Night Gaming'
+            assert 'Night Gaming' in window.tabs.tabText(1)
+            assert a50_names.load_names()[1] == 'Night Gaming'
+            preset_path = Path(home) / 'preset.astroeq'
+            with patch('a50_gui.QFileDialog.getSaveFileName',
+                       return_value=(str(preset_path), 'Astro EQ (*.astroeq)')):
+                window.preset(2, False)
+            assert a50.load_astroeq(preset_path)['name'] == 'Night Gaming'
+            imported = Path(home) / 'imported.astroeq'
+            a50.export_preset(before, 2, imported, name='Imported from Windows')
+            with patch('a50_gui.QFileDialog.getOpenFileName',
+                       return_value=(str(imported), 'Astro EQ (*.astroeq)')):
+                window.preset(2, True)
+            assert window.eq_names[1] == 'Imported from Windows'
+            assert 'Imported from Windows' in window.tabs.tabText(1)
+            assert a50_names.load_names()[1] == 'Imported from Windows'
+            backup_path = Path(home) / 'backup.json'
+            with patch('a50_gui.QFileDialog.getSaveFileName',
+                       return_value=(str(backup_path), 'JSON (*.json)')):
+                window.backup()
+            assert json.loads(backup_path.read_text())['eq_names'][1] == 'Imported from Windows'
+            with patch('a50_gui.QInputDialog.getText', return_value=('Temporary', True)):
+                window.rename_eq(2)
+            with patch('a50_gui.QFileDialog.getOpenFileName',
+                       return_value=(str(backup_path), 'JSON (*.json)')):
+                window.load_backup()
+            assert window.eq_names[1] == 'Imported from Windows'
+            assert window.draft()['slots'] == before['slots']
         window.close()
         print('PASS: offline EQ bandwidth Narrow/1.0/Wide slider, raw precision, writes disabled')
         return
