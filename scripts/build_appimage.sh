@@ -29,6 +29,10 @@ python3 -m PyInstaller \
     --specpath "$root/build" \
     "$root/tools/a50_gui.py"
 
+# PyInstaller includes Qt xcb but misses optional system XCB libraries on
+# minimal distributions (AppImageHub Xvfb/Ubuntu 22.04, for example).
+python3 scripts/bundle_qt_xcb.py "$root/dist/pyinstaller/astro-a50-linux/_internal"
+
 rm -rf "$appdir"
 mkdir -p "$appdir/usr/lib" "$appdir/usr/share/doc/astro-a50-linux" \
          "$appdir/usr/share/icons/hicolor/256x256/apps"
