@@ -13,7 +13,11 @@ use the EasyEffects result artifacts for running-stream proof.
 Remaining gates: first-launch EasyEffects/stream-restore race for new app names;
 PipeWire-Pulse startup can race A50 master enumeration; native WirePlumber rules
 are installed but have never been activated by a fresh process; KDE tray hide
-filter remains unapplied. The native node rules change maps to FL/FR/... while
+filter was installed by the supervisor after Ben reported a Plasma restart
+with duplicate outputs still visible. Installed file matches the reviewed
+replacement byte-for-byte; another Plasma refresh is awaiting approval.
+The reviewed filter retains Audioengine A2+ and A50 Game 5.1 outputs,
+and A50 Mic as the headset input; raw A50 devices and Voice are hidden. The native node rules change maps to FL/FR/... while
 `15-astro-a50-remap.conf` still expects AUX master maps, so do not run these
 unchanged together. See `artifacts/surround-integration/durable-review.md` for
 the smallest restart-dependent trial and its readbacks. No service restart or
@@ -24,7 +28,7 @@ capped (per Ben's latest instruction).
 
 # Resume after context clear
 
-Checkpoint: 2026-10-24 (updated by worker Astra-surround-integration, Claude/Sonnet).  Durable surround routing now active with module-remap nodes, no restart needed.
+Checkpoint: 2026-10-24 (updated by worker Astra-surround-integration, Claude/Sonnet).  Live surround routing uses module-remap nodes; startup durability is not verified.
 **Read this before changing anything or dispatching work.**
 
 ## Normal-game 5.1 surround — DONE, do not repeat
@@ -39,7 +43,7 @@ Fixed **today, live, with zero restarts** via PipeWire-pulse's built-in (no
 new dependency) `module-remap-sink`/`module-remap-source`: exposes
 `A50 Game 5.1` (FL/FR/FC/LFE/RL/RR, 6ch), `A50 Voice` (FL/FR, 2ch), `A50 Mic`
 (MONO, 1ch), each a 1:1 passthrough onto the real pro-output-0/1 / pro-input-0
-nodes (no mixing, no added latency). Applied live via `pactl load-module`
+nodes (channel remapping; added latency has not been measured). Applied live via `pactl load-module`
 (exact commands in `artifacts/surround-integration/apply-live.sh`) — this is
 why games work *right now*, independent of everything below. **This is the
 mechanism that is actually live and correct; see the two detours below before

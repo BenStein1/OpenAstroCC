@@ -333,3 +333,9 @@ the doc but not yet implemented or exercised.
 native GET/SET, UI and real verification. Full support remains incomplete.
 The worktree started clean. EQ/coefficient and mediator analysis is active;
 complementary mic/stream analysis is supervisor-owned. Audio approval is pending.
+
+2026-10-24 picker update: supervisor installed the reviewed dpkg-diverted KDE
+filter using desktop administrator authentication. Installed bytes match the
+reviewed file. Live-name validation leaves Audioengine A2+ and A50 Game 5.1
+as outputs and A50 Mic as the headset input. Plasma refresh/UI acceptance
+is pending; this does not establish startup persistence.
