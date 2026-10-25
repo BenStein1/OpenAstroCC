@@ -22,17 +22,17 @@ def baseline():
 
 
 class PresetLibraryTests(unittest.TestCase):
-    def test_bundled_and_example_presets(self):
+    def test_bundled_and_custom_presets(self):
         refs = a50_library.available_presets()
         builtin = {p.name: p for p in refs if p.source == "Astro"}
-        example = {p.name: p for p in refs if p.source == "Example"}
+        bundled_custom = {p.name: p for p in refs if p.source == "Custom"}
         self.assertGreaterEqual(len(builtin), 5)
         self.assertIn("ASTRO", builtin)
         self.assertIn("PRO", builtin)
-        self.assertIn("Bass & Clarity", example)
+        self.assertIn("Bass & Clarity", bundled_custom)
         self.assertTrue(all(not p.writable for p in builtin.values()))
-        self.assertFalse(example["Bass & Clarity"].writable)
-        self.assertEqual(a50_library.file_signature(example["Bass & Clarity"]),
+        self.assertFalse(bundled_custom["Bass & Clarity"].writable)
+        self.assertEqual(a50_library.file_signature(bundled_custom["Bass & Clarity"]),
                          ((6, -2, 0, 2, 4), (90, 406, 783, 4001, 7001),
                           (8192, 8192, 8192)))
 
