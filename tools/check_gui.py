@@ -151,7 +151,9 @@ def run(live):
 
             factory = root / 'presets/ASTRO.astroeq'
             unchanged_factory = factory.read_bytes()
-            with patch('a50_gui.QInputDialog.getText',
+            with patch('a50_gui.QMessageBox.question',
+                       return_value=QMessageBox.StandardButton.No), patch(
+                       'a50_gui.QInputDialog.getText',
                        return_value=('Bass & Clarity Personal', True)):
                 window.save_library_preset(3)
             saved = Path(home) / 'astro-a50-linux/presets/Bass & Clarity Personal.astroeq'
