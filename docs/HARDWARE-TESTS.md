@@ -162,18 +162,41 @@ The descriptor advertises L/R/C/LFE/LS/RS at 48 kHz on the Game function. Whethe
 the headset renders those discretely or downmixes internally cannot be read from
 a descriptor.
 
-First validate a real playback route to the Game sink. The earlier suggested
-`pro-audio:CARD=A50,DEV=1` name was not established as an ALSA PCM and must not
-be used as proof of testing. Targeted six-channel test generation/playback
-instructions remain to be verified before this test can run.
+### 4a — Verified 6-channel playback method
 
-For the eventual low-volume per-channel test, Note for each of the six
-whether it is audible and whether it appears to come from the expected direction.
-Front-left/front-right are the reliable anchors; centre and LFE commonly fold in.
+Direct positional render with raw stdin to `pro-output-1`:
 
-Also worth trying with the headset's **DOLBY ON** vs **SOURCE AUDIO** toggle in
-each position, since that switch is documented to select onboard processing
-versus passthrough — it may change the answer entirely.
+```
+pw-play --raw --rate=48000 --channels=6 --format=s16 \
+  --channel-map=AUX0,AUX1,AUX2,AUX3,AUX4,AUX5 \
+  --target=alsa_output.usb-Astro_Gaming_Astro_A50-00.pro-output-1 \
+  < six-channel.s16le
+```
+
+**Important:** Use `< six-channel.s16le` input redirection, not positional filename.
+`pw-play` in raw mode requires stdin when used with explicit format parameters;
+positional filename without stdin exits without playing. The WAV player path
+initially negotiated only 2 channels despite the WAV header declaring 6; the raw
+stdin path with explicit parameters bypasses that negotiation.
+
+### 4b — Verification (completed 2026-10-24)
+
+Silent probe of all six channels confirmed individual link presence. With Dolby
+toggle:
+
+**Dolby ON (onboard 5.1 processing):** Very clear channel separation across all six
+channels (FL, FR, C, RL, RR, LFE) — each discrete, no mixing.
+
+**Dolby OFF (passthrough):** Collapsed to stereo L/R only; centre/surround/LFE
+silent.
+
+This confirms the headset renders the six discrete channels when Dolby is active
+(onboard processing), and Dolby's role as a 5.1-capable processor. In passthrough
+mode (Dolby OFF), the device appears to reduce to stereo.
+
+Note for each of the six whether it is audible and whether it appears to come from
+the expected direction. Front-left/front-right are the reliable anchors; centre
+and LFE commonly fold in.
 
 ## What to report back
 

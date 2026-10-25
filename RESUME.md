@@ -96,28 +96,25 @@ snapshots used for reversible testing pass (`before==after`, no stray sync).
   install if still available. Mic/stream tabs implemented and verified with live
   GUI write/readback tests; listening and other controls' audible proof pending.
 
-## Authorization and remaining live-test boundary
+## Audio profile approval and physical acceptance tests — VERIFIED (2026-10-24)
 
-Ben explicitly instructed (2026-10-24, superseding the prior note below): use
+Ben explicitly approved three physical tests with A50 pro-audio profile active:
+1. **Separate Game/Voice playback** — Verified: both heard comfortably when played independently, and both heard when concurrent (no restart, no config edits, profile only)
+2. **Hardware balance control** — Verified: Game button favors low Game, Voice button favors high Voice; buttons functional on live concurrent streams
+3. **Dolby ON/OFF toggle** — Verified: "Very clear channel separation when Dolby was on, collapsed to L/R when off" (6-channel discrete when Dolby ON, stereo passthrough when OFF)
+
+Evidence and command line for verified 6-channel playback (including silent probe and audible test) in `docs/HARDWARE-TESTS.md` §4a-4b and `artifacts/audio-live/physical-acceptance.json`.
+
+**Ben explicitly instructed (2026-10-24, superseding the prior note below):** use
 **Claude workers now**, choosing models to conserve tokens/session use —
 Sonnet did this pass. Codex `bcf7b754-4adb-4666-a2d5-9ac38fa18f3b` hit its
 usage limit and NVIDIA `4e1d4ca4-17ef-4201-8000-e7944c30a808` was cancelled;
 neither is active. No paid-credit Fable/Opus without separate authorization.
-Prior note for history: Ben had previously permitted **Codex or NVIDIA free
-workers**; skip Gemini; LiteLLM must use `nvidia-free-reasoning` or
-`nvidia-free-fast`, not the paid Merge model with exhausted credits.
 
 Full feature work includes verified reversible headset-setting validation with
 baseline/readback/restoration. No guessed/brute-force commands, firmware flash,
 reset/unknown0xDA, Windows source changes, off-limits files, service restart,
-or global/dotfile audio configuration changes.
-
-**Audio permission remains unanswered.** The supervisor asked to switch only
-the live A50 profile to pro-audio and play brief low-volume tests, without
-restart/config edits. Do not infer approval from the full-feature goal or time.
-Continue independent software/UI/protocol work. Physical Game/Voice, Dolby,
-sidetone audibility, mic flip/gate and positional rendering need real tests;
-do not mark100% from mocks, descriptors, or ACKs.
+or global/dotfile audio configuration changes (for this approved profile test).
 
 **New root-cause finding (worker Astra-audio-routing, 2026-10-24, read-only, no
 state changed):** live kernel UAC descriptors (`/proc/asound/card1/stream0`/
@@ -140,25 +137,21 @@ existing loopback services to become real Game/Voice paths: their
 `target.object` would also need to point at the new pro-output-0/pro-output-1
 sinks -- that edit is outside this repo and still Ben's call.
 
-## Next sequence
+## Remaining work — software/persistence/per-app routing
 
 Software implementation and reversible CLI+GUI verification are done for EQ,
 dock defaults, mic and stream controls (see "Mic/stream integration — VERIFIED"
-above and docs/FEATURES.md). What's left needs either Ben directly or new
-static RE, not more client/GUI code:
+above and docs/FEATURES.md). Physical Game/Voice/Dolby playback now verified.
+What's left:
 
-1. Audio-profile approval is still unanswered — do not infer it from this
-   pass. Once answered: switch to pro-audio, test low-volume playback, and
-   verify independent Game/Voice/mic routing.
-2. Physical tests only Ben can do: dock brightness/alert-volume listening,
-   sidetone/mic-EQ/noise-gate audibility and recording, battery charging
-   transition, physical balance/EQ-select interaction, unplug/reinsert.
-3. Persistence: `sync` (`0x61`) has never been sent in this project. Test it
+1. **Pending physical tests:** dock brightness/alert-volume listening, sidetone/mic-EQ/noise-gate audibility and recording, battery charging transition, physical mic flip/mute/link interaction, unplug/reinsert, per-app stream mix audibility.
+
+2. **Persistence:** `sync` (`0x61`) has never been sent in this project. Test it
    only with a fresh full baseline, confirm working==stored readback, then a
    real power-cycle to prove persistence — needs Ben physically present.
-4. Dolby/mic-flip/headset-link status mapping remains an open hypothesis
-   (docs/A50-PROTOCOL.md): one `0x72` status field (field_id1) has no bound
-   consumer and was constant in every capture so far. Needs a fresh static
-   trace of its consumer, or a live toggle test with Ben.
-5. Update FEATURES/PROJECT/HANDOFF and commit meaningful milestones locally.
-   Never push without Ben's separate instruction.
+
+3. **Software-side Dolby/mic-flip/headset-link status mapping:** Physical Dolby toggle confirmed functional (Dolby ON → 6-channel discrete, OFF → stereo passthrough). Remaining open: whether `0x72` field_id1 and other payload fields map to mute/flip/link status in software; static trace shows no bound consumer in the resolved-paths analysis. Needs fresh static trace of any consumer, or live interaction test.
+
+4. **Per-app stream routing:** Profile switch to pro-audio is now approved and tested. Pre-existing non-repo `~/.config/systemd/user/a50-loopback-{game,voice}.service` sinks still route to same physical sink (proven by live `pw-link` trace). Repointing those services' `target.object` to pro-output-0/pro-output-1 is outside this repo and user-driven.
+
+5. **Config installation/autostart/reboot/WirePlumber persistence:** Candidate `config/51-astro-a50-pro-audio.conf` prepared; profile switch tested live without config install. Persistence (survive reboot) untested. Installation and verification is user-driven unless explicitly requested.

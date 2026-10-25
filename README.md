@@ -4,8 +4,10 @@ Native HID settings client and PyQt6 app for USB **9886:0015**. Three EQ slots,
 frequency/bandwidth controls, default Game/Voice balance, brightness, alert
 volume, battery/charging, firmware identity, microphone/stream controls, and
 sidetone/noise-gate are implemented. Thirty-eight reversible hardware checks
-passed and restored the recovered baseline. Physical audio tests, sync (persist),
-and power-cycle verification remain open; see [FEATURES](docs/FEATURES.md) for
+passed and restored the recovered baseline. Physical Game/Voice playback,
+hardware balance mixing, and Dolby ON/OFF toggle verified (2026-10-24).
+Sidetone/mic audibility, sync (persist), power-cycle verification, and
+per-app stream routing remain open; see [FEATURES](docs/FEATURES.md) for
 the precise ledger.
 
 Run the app with the installed system Python:
@@ -20,9 +22,11 @@ write saves a baseline, checks readback and retains exact TX/RX under ignored
 action. JSON backup/import and per-slot `.astroeq` import/export are available.
 JSON backups cover EQ, dock settings, microphone/stream controls, and noise gate.
 
-**Physical hardware:** the headset's physical Dolby button and Game/Voice mixer
-are independent; the Linux app does not replace those controls. USB device paths
-and stream routing are mapped for independent audio control.
+**Physical hardware:** the headset's physical Dolby button toggles between 6-channel discrete
+and stereo passthrough (verified). The Game/Voice hardware mixer is independent; both streams
+can play simultaneously with Game/Voice buttons controlling relative levels (verified). The Linux
+app provides settings but does not replace these physical controls. USB device paths and stream
+routing are mapped for independent audio control when pro-audio profile is active.
 
 ```bash
 python3 tools/a50.py inventory
