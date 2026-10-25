@@ -74,6 +74,7 @@ def save_names(names):
 def preset_directories():
     root = Path(__file__).resolve().parent.parent
     dirs = [
+        root / "presets",  # Distributable text EQ preset files, separate from ignored Windows app archives.
         root / "artifacts/classic-acc/assets/Astro A50 Wireless/Astro EQ",
         root / "artifacts/appdata-classic/Astro A50 Wireless/Astro EQ",
         root / "artifacts/appdata-store/ASTRO A50 Wireless",
