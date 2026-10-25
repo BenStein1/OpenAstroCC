@@ -29,6 +29,14 @@ Run the app with the installed system Python:
 /usr/bin/python3 tools/a50_gui.py
 ```
 
+**Named EQ slots:** the three EQ tabs can be renamed independently (for example,
+ASTRO, PRO, or a custom label). Names are **local metadata**, not a claim that
+the headset contains text labels. Importing `.astroeq` adopts its
+`[General] Name`; exporting keeps your chosen name. JSON backups include
+optional `eq_names` for transfer to another computer, while existing backups
+remain compatible. Names are preserved through refresh and saved under
+`~/.config/astro-a50-linux/eq-names.json` (or `$XDG_CONFIG_HOME`).
+
 **Settings app only:** edits are staged until **Write working settings**. Every
 write saves a baseline, checks readback and retains exact TX/RX under ignored
 `artifacts/backups/`. Persistent save to headset storage is a separate explicit
