@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Astro A50 Linux
-GenericName=Astro A50 Gen 3 headset settings
+Name=OpenAstroCC
+GenericName=OpenAstroCC — Astro A50 Gen 3 headset settings
 Comment=Configure Astro A50 Gen 3 audio, EQ presets, microphone and sidetone
 Exec=astro-a50-linux
 Icon=astro-a50-linux
