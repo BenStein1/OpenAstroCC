@@ -67,6 +67,8 @@ jobs:
           test "$status" -eq 124
           test -f dist/AppDir/usr/lib/astro-a50-linux/_internal/libxcb-icccm.so.4
           test -f dist/AppDir/usr/lib/astro-a50-linux/_internal/libxcb-shape.so.0
+          test -s dist/AppDir/usr/share/doc/astro-a50-linux/third-party/qt-xcb-system-libraries/libxcb-icccm4.copyright
+          test -s dist/AppDir/usr/share/doc/astro-a50-linux/third-party/qt-xcb-system-libraries/libxcb-shape0.copyright
       - name: Upload tested AppImage and SHA256
         uses: actions/upload-artifact@v4
         with:
