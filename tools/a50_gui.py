@@ -10,7 +10,7 @@ import math
 import subprocess
 import time
 from PyQt6.QtCore import QEvent, QPointF, QProcess, QRectF, Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QIcon, QPixmap, QFont, QLinearGradient, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QColor, QIcon, QPixmap, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QStylePainter
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGridLayout, QFormLayout, QLabel, QPushButton, QTabWidget,
     QSpinBox, QDoubleSpinBox, QComboBox, QFileDialog, QMessageBox, QInputDialog, QPlainTextEdit,
@@ -230,6 +230,44 @@ class SliderRow(QWidget):
         super().setEnabled(enabled)
 
 
+class CenterFillSlider(DragSlider):
+    """One centered neutral groove, with orange fill spreading from midpoint."""
+
+    def __init__(self, parent=None):
+        super().__init__(Qt.Orientation.Horizontal, parent)
+        self.setStyleSheet(
+            'QSlider::groove:horizontal { height: 6px; background: #2a2e38; border-radius: 3px; } '
+            'QSlider::sub-page:horizontal { background: #2a2e38; border-radius: 3px; } '
+            'QSlider::add-page:horizontal { background: #2a2e38; border-radius: 3px; } '
+            'QSlider::handle:horizontal { background: white; width: 18px; height: 18px; '
+            'margin: -6px 0; border-radius: 9px; }')
+
+    def paintEvent(self, _event):
+        option = QStyleOptionSlider()
+        self.initStyleOption(option)
+        painter = QStylePainter(self)
+        painter.drawComplexControl(QStyle.ComplexControl.CC_Slider, option)
+        middle = QStyleOptionSlider()
+        self.initStyleOption(middle)
+        middle.sliderPosition = (self.minimum() + self.maximum()) // 2
+        middle.sliderValue = middle.sliderPosition
+        current_handle = self.style().subControlRect(
+            QStyle.ComplexControl.CC_Slider, option,
+            QStyle.SubControl.SC_SliderHandle, self)
+        middle_handle = self.style().subControlRect(
+            QStyle.ComplexControl.CC_Slider, middle,
+            QStyle.SubControl.SC_SliderHandle, self)
+        groove = self.style().subControlRect(
+            QStyle.ComplexControl.CC_Slider, option,
+            QStyle.SubControl.SC_SliderGroove, self)
+        painter.setPen(QPen(QColor(ACCENT), 6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.drawLine(QPointF(middle_handle.center().x(), groove.center().y()),
+                         QPointF(current_handle.center().x(), groove.center().y()))
+        # Put the native white handle on top of the fill, not underneath it.
+        option.subControls = QStyle.SubControl.SC_SliderHandle
+        painter.drawComplexControl(QStyle.ComplexControl.CC_Slider, option)
+
+
 class BandwidthSlider(QWidget):
     """Bell-band octave width: narrow left, 1.0 octave at center, wide right.
 
@@ -245,7 +283,7 @@ class BandwidthSlider(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._raw = 4096
-        self.slider = DragSlider(Qt.Orientation.Horizontal)
+        self.slider = CenterFillSlider()
         self.slider.setRange(0, 100)
         self.slider.setPageStep(5)
         self.slider.setSingleStep(1)
@@ -288,6 +326,10 @@ class BandwidthSlider(QWidget):
         return round(50 + 50 * (octaves - 1.0) / 2.0)
 
     def _slider_changed(self, position):
+        # Magnetic midpoint: snap onto exactly 1.0 octave within three steps.
+        # The thumb is still free to pass through the center when dragged beyond it.
+        if 47 <= position <= 53:
+            position = 50
         # Endpoint at 0 uses the hardware's actual minimum (409/4096).
         self.setRawValue(self.RAW_MIN if position == 0 else
                          round(self._octaves_for(position) * 4096))
@@ -611,6 +653,7 @@ class Window(QMainWindow):
             # Never erase or silently replace an invalid local names file.
             self.eq_names = list(a50_names.DEFAULT_NAMES)
             self.names_error = str(exc)
+        self.eq_auto_names = [None, None, None]
         self.busy = False
         self.quiet = False
         self.done_message = None
@@ -718,9 +761,7 @@ class Window(QMainWindow):
                 strip.setColumnStretch(column, 1)
             inner.addLayout(strip)
             footer = QHBoxLayout()
-            footer.addWidget(hint('Bell bandwidth: Narrow (left) affects fewer frequencies; Wide (right) affects more. '
-                                  'Center is 1.0 octave. Wheel over a bell node to adjust width. '
-                                  'Curve is an estimate. Changes wait for “Write working settings”.'), 1)
+            footer.addWidget(hint('EQ edits are applied with “Write working settings”.'), 1)
             flat = QPushButton('Flatten gains')
             flat.clicked.connect(lambda _c=False, c=controls: [g.setValue(0) for g, _, _ in c])
             imp = QPushButton('Import .astroeq')
@@ -827,12 +868,25 @@ class Window(QMainWindow):
         self.update_enabled()
         QTimer.singleShot(0, self.refresh)
 
+    def eq_display_names(self):
+        # Explicit custom names always win; only blank/default slots are
+        # eligible for a verified numeric match from existing .astroeq files.
+        return [name if name != 'Unnamed' else (auto or 'Unnamed')
+                for name, auto in zip(self.eq_names, self.eq_auto_names)]
+
+    def update_auto_eq_names(self, document):
+        self.eq_auto_names = a50_names.match_preset_names(document)
+        self.refresh_eq_names()
+
     def refresh_eq_names(self):
-        for index, name in enumerate(self.eq_names):
-            display = name if len(name) <= 22 else name[:21] + '…'
+        for index, name in enumerate(self.eq_display_names()):
             self.eq_name_labels[index].setText('Preset name: ' + name)
-            self.tabs.setTabText(index, 'EQ %d · %s' % (index + 1, display))
-            self.tabs.setTabToolTip(index, 'Headset slot %d — %s (locally stored label)' % (index + 1, name))
+            self.eq_name_labels[index].setToolTip(
+                'Custom local label' if self.eq_names[index] != 'Unnamed'
+                else 'Matched against local Astro EQ files' if self.eq_auto_names[index]
+                else 'No matching local .astroeq preset found; use Rename EQ or Import .astroeq')
+            self.tabs.setTabText(index, 'EQ %d' % (index + 1))
+            self.tabs.setTabToolTip(index, 'Headset EQ slot %d' % (index + 1))
 
     def commit_eq_names(self, names):
         # Keep UI labels unchanged if writing the local metadata fails.
@@ -947,6 +1001,7 @@ class Window(QMainWindow):
         document, self.identity, self.audio = result
         self.connected = not self.offline
         self.populate(document)
+        self.update_auto_eq_names(document)
         self.show_status(document['status'])
         self.details.setPlainText(json.dumps({'identity': self.identity, 'status': document['status'],
             'stored_EQ': [{ 'slot': s['slot'], 'gains': s['gains']['stored'],
@@ -1015,7 +1070,7 @@ class Window(QMainWindow):
     def show_status(self, status):
         prefix = 'Offline backup' if self.offline else 'A50 connected'
         slot = status.get('eq_slot')
-        slot_label = 'EQ %d · %s' % (slot, self.eq_names[slot - 1]) if slot in (1, 2, 3) else 'EQ unknown'
+        slot_label = 'EQ %d' % slot if slot in (1, 2, 3) else 'EQ unknown'
         self.status_label.setText('%s · battery %d%% · %s · hardware balance %d · %s' % (
             prefix, status['battery'], 'charging' if status['charging'] else 'not charging',
             status.get('current_balance', status['status_byte']), slot_label))
@@ -1134,6 +1189,7 @@ class Window(QMainWindow):
         self.persisting = False
         pending, self.pending = self.pending, None
         self.populate(document)
+        self.update_auto_eq_names(document)
         if pending is not None:
             # Keep the other unwritten editor edits; they still need "Write working settings".
             baseline = self.document
@@ -1164,7 +1220,7 @@ class Window(QMainWindow):
         if path:
             try:
                 backup = copy.deepcopy(self.document)
-                backup['eq_names'] = list(self.eq_names)  # local-only metadata; not a headset field
+                backup['eq_names'] = self.eq_display_names()  # labels are local, not on the headset
                 a50.save_json(path, backup)
                 self.notice.setText('Exported device readback and local EQ names: ' + path)
             except Exception as exc:
@@ -1220,7 +1276,7 @@ class Window(QMainWindow):
                 self.notice.setText('Imported “%s” into EQ %d editor; write working settings to use it.' %
                                     (imported_name, slot))
             else:
-                a50.export_preset(self.draft(), slot, path, name=self.eq_names[slot - 1])
+                a50.export_preset(self.draft(), slot, path, name=self.eq_display_names()[slot - 1])
         except Exception as exc:
             self.notice.setText(str(exc))
 
