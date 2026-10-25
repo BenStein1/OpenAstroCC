@@ -28,8 +28,11 @@ It reads base/headset identity (firmware 36791/36154 on this hardware), and on
 a schema-v2 device also the six sliders and microphone EQ/noise gate, shown on
 the Microphone and Stream mix tabs (disabled for an offline v1 backup). Every
 transaction rediscovers the A50, validates the opened fd's USB identity, takes
-an exclusive cooperative lock, and closes it on completion. Polling is five
-seconds and is silent (the window is not greyed out or reloaded); only explicit Write/Save/Refresh grey the UI while they run. Disconnect disables writes; subsequent polls retry discovery and load
+an exclusive cooperative lock, and closes it on completion. Status polling (battery/charging) runs every 60 s while connected and the
+window is active, and once whenever the window is activated; while disconnected it
+rescans every 3 s (a sysfs lookup, no USB traffic). **Refresh / reconnect** keeps
+looking for up to 12 s, since the headset can drop off USB for a few seconds after
+**Save to headset**. Polling is silent (the window is not greyed out or reloaded); only explicit Write/Save/Refresh grey the UI while they run. Disconnect disables writes; subsequent polls retry discovery and load
 a fresh snapshot before reenabling them. Physical unplug/reinsert still needs
 Ben's test; synthetic disconnect and host GUI reads are separate evidence.
 
