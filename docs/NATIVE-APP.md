@@ -7,7 +7,12 @@ UI (2026-10-25 redesign): dark themed window. Each EQ tab has an interactive
 graphic EQ: a log-frequency response curve (estimated with RBJ biquads at 48 kHz,
 not a measurement of the headset DSP) with draggable band nodes (vertical = gain,
 horizontal = frequency, mouse wheel on a bell = bandwidth), plus per-band gain
-sliders and exact frequency/bandwidth boxes. "Volume and balance" has sliders for
+sliders and exact frequency boxes. Bands 2–4 now use horizontal **Narrow ↔ Wide**
+octave-width sliders instead of six-decimal spin boxes: 1.0 octave is at the
+physical midpoint, with 0.10 octave (narrow) at the left and 3.0 (wide) at
+the right. The UI shows two decimals for readability but retains the exact
+4.12 raw hardware value in memory until the user actually edits the slider.
+Low/high shelf bands have no adjustable octave width. "Volume and balance" has sliders for
 Game/Voice balance, alert volume and the four stream levels; the microphone and
 dock pages use sliders too. Control semantics and the write path are unchanged.
 The Game/Voice end labels follow the existing label order and are not yet
