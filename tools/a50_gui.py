@@ -1058,6 +1058,8 @@ class Window(QMainWindow):
             updated[slot - 1] = preset_name
             if updated != self.eq_names:
                 self.commit_eq_names(updated)
+            # A name-only operation associates metadata, not the source EQ values.
+            self.refresh_eq_names()
             self.notice.setText('EQ %d named “%s” from file. EQ settings were not changed.' %
                                 (slot, preset_name))
         except (OSError, ValueError, KeyError, TypeError, configparser.Error) as exc:
@@ -1171,31 +1173,36 @@ class Window(QMainWindow):
         QApplication.instance().quit()
 
     def populate(self, document):
-        a50.validate_backup(document)
-        self.document = copy.deepcopy(document)
-        for slot, controls in zip(document['slots'], self.eq):
-            for index, (gain, freq, width) in enumerate(controls):
-                gain.setValue(slot['gains']['working'][index])
-                freq.setValue(slot['bands'][index]['working']['frequency'])
-                if width is not None:
-                    width.setRawValue(slot['bands'][index]['working']['bandwidth_raw'])
-        settings = document['settings']
-        self.editor_brightness = settings['brightness_channels'].copy()
-        self.balance.setValue(settings['default_balance'])
-        self.brightness.setValue(round(sum(settings['brightness_channels']) / 9))
-        self.alert.setValue(settings['alert_volume'])
-        full = document['schema'] == 'astro-a50-gen3-v2'
-        self.tabs.setTabEnabled(self.mic_tab, full)
-        for name, row in self.sliders.items():
-            if name.startswith('stream_'):
-                row.setEnabled(full)
-        if full:
-            for name, spin in self.sliders.items():
-                spin.setValue(document['sliders'][name]['working'])
-            self.mic_eq.setCurrentIndex(document['microphone']['eq'])
-            self.noise_gate.setCurrentIndex([p.hex() for p in a50.NOISE_GATE_PACKETS].index(
-                document['microphone']['noise_gate']['working']))
-        self.update_enabled()
+        self.eq_loading = True
+        try:
+            a50.validate_backup(document)
+            self.document = copy.deepcopy(document)
+            for slot, controls in zip(document['slots'], self.eq):
+                for index, (gain, freq, width) in enumerate(controls):
+                    gain.setValue(slot['gains']['working'][index])
+                    freq.setValue(slot['bands'][index]['working']['frequency'])
+                    if width is not None:
+                        width.setRawValue(slot['bands'][index]['working']['bandwidth_raw'])
+            settings = document['settings']
+            self.editor_brightness = settings['brightness_channels'].copy()
+            self.balance.setValue(settings['default_balance'])
+            self.brightness.setValue(round(sum(settings['brightness_channels']) / 9))
+            self.alert.setValue(settings['alert_volume'])
+            full = document['schema'] == 'astro-a50-gen3-v2'
+            self.tabs.setTabEnabled(self.mic_tab, full)
+            for name, row in self.sliders.items():
+                if name.startswith('stream_'):
+                    row.setEnabled(full)
+            if full:
+                for name, spin in self.sliders.items():
+                    spin.setValue(document['sliders'][name]['working'])
+                self.mic_eq.setCurrentIndex(document['microphone']['eq'])
+                self.noise_gate.setCurrentIndex([p.hex() for p in a50.NOISE_GATE_PACKETS].index(
+                    document['microphone']['noise_gate']['working']))
+            self.update_enabled()
+        finally:
+            self.eq_loading = False
+        self.refresh_eq_names()
 
     def draft(self):
         result = copy.deepcopy(self.document)
@@ -1424,6 +1431,10 @@ class Window(QMainWindow):
                 baseline = self.document
                 self.populate(imported)
                 self.document = baseline
+                self.eq_selected_refs[slot - 1] = next(
+                    (ref for ref in self.library_presets if ref.path == Path(path)), None)
+                self.eq_origin_signatures[slot - 1] = a50_library.slot_signature(imported, slot)
+                self.refresh_eq_names()
                 self.notice.setText('Imported “%s” into EQ %d editor; write working settings to use it.' %
                                     (imported_name, slot))
             else:
