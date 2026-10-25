@@ -667,8 +667,12 @@ def change_with_backup(action, directory=None, persistent=False):
     """Save baseline, perform bounded action, save readback and capture even on error."""
     from pathlib import Path
     import uuid
-    root = Path(__file__).resolve().parent.parent
-    directory = Path(directory) if directory else root / "artifacts/backups" / (
+    if getattr(sys, 'frozen', False):
+        xdg_state = Path(os.environ.get('XDG_STATE_HOME', Path.home() / '.local/state'))
+        root = xdg_state / 'astro-a50-linux'
+    else:
+        root = Path(__file__).resolve().parent.parent / 'artifacts'
+    directory = Path(directory) if directory else root / "backups" / (
         time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8])
     directory.mkdir(parents=True, exist_ok=False)
     with A50Client() as client:
