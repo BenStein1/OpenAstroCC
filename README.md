@@ -1,4 +1,4 @@
-# Astro A50 Gen 3 for Linux
+# OpenAstroCC — Astro A50 Gen 3 for Linux
 
 **For developers and future maintainers:** [Gen 3 implementation and protocol guide](docs/GEN3-IMPLEMENTATION-GUIDE.md)
 documents the actual USB hardware, exact HID framing, all supported read/write
