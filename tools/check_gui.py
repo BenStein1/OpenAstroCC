@@ -123,8 +123,10 @@ def run(live):
 
             # Choose the screenshot-based example from a compact dropdown.
             picker = window.eq_pickers[2]
-            example_index = picker.findText('Example · Bass & Clarity')
+            example_index = picker.findText('Custom · Bass & Clarity')
             assert example_index >= 0
+            assert picker.findText('Example · Bass & Clarity') == -1
+            assert picker.findText('Mine · Bass & Clarity Personal') == -1
             window.choose_library_preset(3, example_index)
             assert window.draft()['slots'][2]['bands'][2]['working']['bandwidth_raw'] == 8192
             assert 'Bass & Clarity' in window.eq_name_labels[2].text()
