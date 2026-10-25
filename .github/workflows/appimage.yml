@@ -26,7 +26,7 @@ jobs:
       - name: Install build and Qt runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1 libegl1 libopengl0 xvfb xauth curl \
+          sudo apt-get install -y libgl1 libegl1 libopengl0 xvfb xauth curl appstream desktop-file-utils \
             libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
             libxcb-keysyms1 libxcb-render-util0 libxcb-util1 libxcb-xkb1 \
             libxcb-xinput0 libxcb-xinerama0 libxcb-shape0 libxcb-shm0 \
@@ -41,6 +41,13 @@ jobs:
           timeout 120s python tools/check_gui.py
       - name: Build executable AppImage (with license files)
         run: bash scripts/build_appimage.sh
+      - name: Validate AppStream desktop integration and screenshot metadata
+        run: |
+          desktop-file-validate packaging/astro-a50-linux.desktop
+          appstreamcli validate --no-net packaging/io.github.BenStein1.OpenAstroCC.metainfo.xml
+          test -s dist/AppDir/usr/share/metainfo/io.github.BenStein1.OpenAstroCC.metainfo.xml
+          test -s dist/AppDir/usr/share/applications/astro-a50-linux.desktop
+          test -s dist/AppDir/usr/share/icons/hicolor/256x256/apps/astro-a50-linux.png
       - name: Smoke-test bundled AppImage (offline; no headset writes)
         env:
           APPIMAGE_EXTRACT_AND_RUN: '1'
