@@ -57,7 +57,7 @@ jobs:
           # The GUI must stay open and show a disconnected state without USB hardware.
           # timeout=124 is expected: CI terminates an otherwise living window.
           set +e
-          APPIMAGE_EXTRACT_AND_RUN=1 QT_QPA_PLATFORM=xcb \
+          APPIMAGE_EXTRACT_AND_RUN=1 QT_QPA_PLATFORM=xcb QT_DEBUG_PLUGINS=1 \
             xvfb-run -a timeout --signal=TERM 12s \
             ./dist/OpenAstroCC-x86_64.AppImage > build/appimage-xcb-smoke.log 2>&1
           status=$?
