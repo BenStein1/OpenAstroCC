@@ -49,7 +49,7 @@ class PresetLibraryTests(unittest.TestCase):
 
     def test_save_custom_does_not_replace_bundled_astro_files(self):
         original = (ROOT / "presets/ASTRO.astroeq").read_bytes()
-        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"XDG_DATA_HOME": tmp}):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"XDG_DATA_HOME": tmp, "APPIMAGE": "/tmp/test.AppImage"}):
             doc = baseline()
             saved = a50_library.save_custom(doc, 3, "ASTRO")
             self.assertTrue(saved.writable)
@@ -65,8 +65,33 @@ class PresetLibraryTests(unittest.TestCase):
             self.assertEqual(a50.load_astroeq(saved.path)["gains"][0], 7)
             self.assertEqual((ROOT / "presets/ASTRO.astroeq").read_bytes(), original)
 
+    def test_git_checkout_saves_to_custom_and_can_overwrite_custom_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / ".git").mkdir()
+            (root / "presets/custom").mkdir(parents=True)
+            astro = root / "presets/ASTRO.astroeq"
+            astro.write_bytes((ROOT / "presets/ASTRO.astroeq").read_bytes())
+            custom = root / "presets/custom/Bass & Clarity.astroeq"
+            custom.write_bytes((ROOT / "presets/custom/Bass & Clarity.astroeq").read_bytes())
+            before_astro = astro.read_bytes()
+            with patch.object(a50_library, "repo_root", return_value=root), patch.dict(
+                    os.environ, {"XDG_DATA_HOME": str(root / "xdg"), "APPIMAGE": ""}):
+                self.assertEqual(a50_library.custom_dir(), root / "presets/custom")
+                self.assertRaises(FileExistsError, a50_library.save_custom,
+                                  baseline(), 3, "Bass & Clarity")
+                altered = baseline()
+                altered["slots"][2]["gains"]["working"][0] = 7
+                saved = a50_library.save_custom(altered, 3, "Bass & Clarity", overwrite=True)
+                self.assertEqual(saved.source, "Custom")
+                self.assertEqual(saved.path, custom)
+                self.assertEqual(a50.load_astroeq(custom)["gains"][0], 7)
+                self.assertEqual(astro.read_bytes(), before_astro)
+                other = a50_library.save_custom(altered, 3, "Fresh Custom")
+                self.assertEqual(other.path.parent, root / "presets/custom")
+
     def test_custom_names_are_validated_and_safely_confined(self):
-        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"XDG_DATA_HOME": tmp}):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"XDG_DATA_HOME": tmp, "APPIMAGE": "/tmp/test.AppImage"}):
             for value in ("/", "...", " ", "\n"):
                 with self.subTest(value=value), self.assertRaises(ValueError):
                     a50_library.custom_path(value)
