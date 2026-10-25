@@ -34,7 +34,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           python -m unittest discover -s tests -p 'test_*.py' -v
-          python tools/check_gui.py
+          timeout 120s python tools/check_gui.py
       - name: Build executable AppImage (with license files)
         run: bash scripts/build_appimage.sh
       - name: Smoke-test bundled AppImage (offline; no headset writes)
