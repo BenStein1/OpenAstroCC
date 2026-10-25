@@ -62,3 +62,7 @@ but briefly flipped during the surround-integration work below and had to be
 caught and reverted — see RESUME.md's "Priority / default-sink incident" for
 why, and the installed `priority.session = 0` node rules in
 `config/51-astro-a50-pro-audio.conf` for the real (restart-gated) fix.
+
+## New: automatic audio detector / safe setup (experimental)
+
+`python3 tools/a50_setup.py detect` discovers the connected Gen 3's six-channel Game, stereo Voice, and mono microphone endpoints from the actual USB ALSA descriptors. `preview` shows a single per-user WirePlumber config; `install --yes` creates it without restarting audio services or touching system defaults. `verify` checks the resulting native endpoints, and `uninstall --yes` removes only its owned file. **Cold reboot/hotplug are not yet hardware-verified**, and setup intentionally refuses to overwrite the existing legacy remap rules on Ben's machine. See [automatic setup guide](docs/AUTO-AUDIO-SETUP.md) and [Issue #9](https://github.com/BenStein1/astro-a50-linux/issues/9).
