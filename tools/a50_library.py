@@ -5,6 +5,7 @@ The firmware knows three EQ slot numbers and numeric parameters, not file names.
 Bundled presets are NEVER overwritten by library operations.
 """
 from dataclasses import dataclass
+import configparser
 import os
 from pathlib import Path
 import re
@@ -54,7 +55,7 @@ def available_presets():
                 data = a50.load_astroeq(path)
                 name = a50_names.normalize_name(data["name"])
                 a50.encode_eq(data)
-            except (OSError, ValueError, KeyError, TypeError):
+            except (OSError, ValueError, KeyError, TypeError, configparser.Error):
                 continue
             found.append(Preset(name, path, source))
     return found
@@ -86,7 +87,7 @@ def recognize(document, slot, presets=None):
     for preset in presets if presets is not None else available_presets():
         try:
             other = file_signature(preset)
-        except (OSError, ValueError, KeyError, TypeError):
+        except (OSError, ValueError, KeyError, TypeError, configparser.Error):
             continue
         if (actual[0] == other[0] and actual[1] == other[1]
                 and all(abs(a - b) <= 41 for a, b in zip(actual[2], other[2]))):
@@ -96,6 +97,8 @@ def recognize(document, slot, presets=None):
 
 def custom_path(name):
     name = a50_names.normalize_name(name)
+    if "/" in name or "\\" in name:
+        raise ValueError("A preset name cannot contain a path separator")
     slug = re.sub(r"[^A-Za-z0-9._ ()-]+", "_", name).strip(" .")
     if not slug or slug.startswith("."):
         raise ValueError("Choose a name that can be used as a filename")
