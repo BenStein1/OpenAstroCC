@@ -1,4 +1,4 @@
-name: Build Astro A50 Linux AppImage
+name: Build OpenAstroCC AppImage
 on:
   pull_request:
   push:
@@ -42,16 +42,16 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: '1'
           QT_QPA_PLATFORM: offscreen
         run: |
-          ./dist/Astro-A50-Linux-x86_64.AppImage --a50-audio-setup --help
-          ./dist/Astro-A50-Linux-x86_64.AppImage --snapshot evidence/a50-baseline.json --smoke
-          test -s dist/Astro-A50-Linux-x86_64.AppImage
-          test -s dist/Astro-A50-Linux-x86_64.AppImage.sha256
-          cd dist && sha256sum -c Astro-A50-Linux-x86_64.AppImage.sha256
+          ./dist/OpenAstroCC-x86_64.AppImage --a50-audio-setup --help
+          ./dist/OpenAstroCC-x86_64.AppImage --snapshot evidence/a50-baseline.json --smoke
+          test -s dist/OpenAstroCC-x86_64.AppImage
+          test -s dist/OpenAstroCC-x86_64.AppImage.sha256
+          cd dist && sha256sum -c OpenAstroCC-x86_64.AppImage.sha256
       - name: Upload tested AppImage and SHA256
         uses: actions/upload-artifact@v4
         with:
-          name: Astro-A50-Linux-x86_64
+          name: OpenAstroCC-x86_64
           path: |
-            dist/Astro-A50-Linux-x86_64.AppImage
-            dist/Astro-A50-Linux-x86_64.AppImage.sha256
+            dist/OpenAstroCC-x86_64.AppImage
+            dist/OpenAstroCC-x86_64.AppImage.sha256
           if-no-files-found: error
