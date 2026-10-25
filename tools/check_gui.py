@@ -8,7 +8,7 @@ import tempfile
 import time
 from pathlib import Path
 from unittest.mock import patch
-from PyQt6.QtWidgets import QApplication, QMessageBox, QAbstractSpinBox
+from PyQt6.QtWidgets import QApplication, QMessageBox, QAbstractSpinBox, QTextBrowser, QLabel
 from PyQt6.QtTest import QTest
 import a50
 import a50_names
@@ -180,7 +180,15 @@ def run(live):
         from a50_about import AboutDialog, AudioSetupDialog
         assert window.about_button.text() == 'About'
         about = AboutDialog(window)
-        assert 'PyQt6' in about.notices.toPlainText()
+        assert isinstance(about.notices, QTextBrowser), 'About must render formatted notices'
+        assert about.notices.openExternalLinks()
+        rendered = about.notices.toPlainText()
+        assert 'PyQt6' in rendered and 'PyInstaller' in rendered
+        assert '|---|' not in rendered and '| Component |' not in rendered
+        assert any('Benjamin Conner' in label.text()
+                   for label in about.findChildren(QLabel))
+        assert any('github.com/BenStein1/OpenAstroCC' in label.text()
+                   for label in about.findChildren(QLabel))
         setup = AudioSetupDialog(about)
         assert not setup.install_button.isEnabled(), 'install must require preview'
         setup.close()

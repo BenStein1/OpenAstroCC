@@ -11,7 +11,7 @@ from pathlib import Path
 from PyQt6.QtCore import QProcess
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit,
-    QVBoxLayout, QMessageBox,
+    QTextBrowser, QVBoxLayout, QMessageBox,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -130,12 +130,33 @@ class AboutDialog(QDialog):
             "Not affiliated with Astro Gaming or Logitech.")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
-        self.notices = QPlainTextEdit()
-        self.notices.setReadOnly(True)
+
+        credit = QLabel("© 2026 Benjamin Conner and contributors · GPLv3")
+        credit.setStyleSheet("color: #aeb5c3;")
+        layout.addWidget(credit)
+        project = QLabel(
+            '<a href="https://github.com/BenStein1/OpenAstroCC" '
+            'style="color:#ff9e58;">Project source, issues and contributions on GitHub</a>')
+        project.setOpenExternalLinks(True)
+        layout.addWidget(project)
+
+        # Qt already understands Markdown: no external parser/web engine needed.
+        # The notice file uses short sections rather than a wide table.
+        self.notices = QTextBrowser()
+        self.notices.setOpenExternalLinks(True)
+        self.notices.setStyleSheet(
+            "QTextBrowser { background: #1c1f26; color: #e6e8ee; "
+            "border: 1px solid #2a2e38; border-radius: 8px; padding: 8px; }")
+        self.notices.document().setDefaultStyleSheet(
+            "a { color: #ff9e58; } "
+            "h1, h2, h3 { color: #f4f5f8; font-weight: bold; } "
+            "code { color: #f6c481; }")
         try:
-            self.notices.setPlainText(NOTICES.read_text(encoding="utf-8"))
+            self.notices.setMarkdown(NOTICES.read_text(encoding="utf-8"))
         except OSError:
-            self.notices.setPlainText("Third-party notices unavailable; see docs/THIRD_PARTY_NOTICES.md.")
+            self.notices.setPlainText(
+                "Third-party notices unavailable. See docs/THIRD_PARTY_NOTICES.md "
+                "in the project repository.")
         layout.addWidget(self.notices, 1)
         row = QHBoxLayout()
         audio = QPushButton("Audio setup…")
