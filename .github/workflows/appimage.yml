@@ -26,7 +26,10 @@ jobs:
       - name: Install build and Qt runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1 libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 xvfb curl
+          sudo apt-get install -y libgl1 libegl1 libopengl0 xvfb xauth curl \
+            libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-render-util0 libxcb-util1 libxcb-xkb1 \
+            libxcb-xinput0 libxcb-xinerama0
           python -m pip install --upgrade pip
           python -m pip install PyQt6==6.9.1 pyinstaller==6.16.0
       - name: Test hardware-independent code and GUI
@@ -47,6 +50,21 @@ jobs:
           test -s dist/OpenAstroCC-x86_64.AppImage
           test -s dist/OpenAstroCC-x86_64.AppImage.sha256
           cd dist && sha256sum -c OpenAstroCC-x86_64.AppImage.sha256
+      - name: Smoke-test visible X11 GUI on headless display (no headset)
+        shell: bash
+        run: |
+          # Exercise the real xcb platform plugin, not Qt's offscreen stub.
+          # The GUI must stay open and show a disconnected state without USB hardware.
+          # timeout=124 is expected: CI terminates an otherwise living window.
+          set +e
+          APPIMAGE_EXTRACT_AND_RUN=1 QT_QPA_PLATFORM=xcb \
+            xvfb-run -a timeout --signal=TERM 12s \
+            ./dist/OpenAstroCC-x86_64.AppImage > build/appimage-xcb-smoke.log 2>&1
+          status=$?
+          set -e
+          cat build/appimage-xcb-smoke.log
+          test "$status" -eq 124
+          test -f dist/AppDir/usr/lib/astro-a50-linux/_internal/libxcb-icccm.so.4
       - name: Upload tested AppImage and SHA256
         uses: actions/upload-artifact@v4
         with:
