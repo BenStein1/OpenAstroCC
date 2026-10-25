@@ -351,6 +351,7 @@ class Window(QMainWindow):
         self.offline = offline
         self.smoke = smoke
         self.busy = False
+        self.done_message = None
         self.connected = False
         self.identity = None
         self.audio = None
@@ -493,6 +494,15 @@ class Window(QMainWindow):
         form.addRow('Microphone EQ', self.mic_eq)
         form.addRow('Noise gate', self.noise_gate)
         inner.addLayout(form)
+        test_row = QHBoxLayout()
+        self.sidetone_test = QPushButton('Test sidetone')
+        self.sidetone_test.setObjectName('primary')
+        self.sidetone_test.setToolTip('Writes only the sidetone level to the headset so you can hear it')
+        self.sidetone_test.clicked.connect(self.test_sidetone)
+        test_row.addWidget(self.sidetone_test)
+        test_row.addWidget(hint('Writes the sidetone level above to the headset (working setting only, nothing '
+                                'is saved), then speak into the mic to hear yourself at that level.'), 1)
+        inner.addLayout(test_row)
         inner.addWidget(hint('Onboard controls; listening and recording confirmation remain pending.'))
         box.addWidget(frame)
         box.addStretch(1)
@@ -534,6 +544,8 @@ class Window(QMainWindow):
             button.setEnabled(not self.busy and (name == 'Refresh / reconnect' or self.document is not None))
         self.buttons['Write working settings'].setEnabled(not self.busy and self.connected and not self.offline)
         self.buttons['Save to headset'].setEnabled(not self.busy and self.connected and not self.offline)
+        self.sidetone_test.setEnabled(not self.busy and self.connected and not self.offline
+                                      and self.document is not None and self.document['schema'] == 'astro-a50-gen3-v2')
         self.tabs.setEnabled(not self.busy and self.document is not None)
 
     def run(self, action, done):
@@ -662,8 +674,16 @@ class Window(QMainWindow):
                 return client.status()
         self.run(read, self.show_status)
 
-    def apply(self):
-        target = self.draft()
+    def test_sidetone(self):
+        target = copy.deepcopy(self.document)
+        target['sliders']['sidetone']['working'] = self.sliders['sidetone'].value()
+        level = self.sliders['sidetone'].value()
+        self.apply(target, 'Sidetone set to %d%%. Speak into the mic to hear it; other unwritten edits were reset. '
+                           'Readback verified, not saved to the headset.' % level)
+
+    def apply(self, target=None, message=None):
+        self.done_message = message
+        target = target or self.draft()
         displayed = copy.deepcopy(self.document)
         def action(client, before):
             if not a50.same_settings(before, displayed):
@@ -674,7 +694,8 @@ class Window(QMainWindow):
     def changed(self, result):
         document, directory = result
         self.populate(document)
-        self.notice.setText('Readback verified. Backup and exact TX/RX: ' + directory)
+        self.notice.setText(getattr(self, 'done_message', None) or 'Readback verified. Backup and exact TX/RX: ' + directory)
+        self.done_message = None
 
     def persist(self):
         if not a50.same_settings(self.draft(), self.document):

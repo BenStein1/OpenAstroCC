@@ -13,6 +13,10 @@ dock pages use sliders too. Control semantics and the write path are unchanged.
 The Game/Voice end labels follow the existing label order and are not yet
 confirmed against hardware. Offscreen check: `QT_QPA_PLATFORM=offscreen python3 tools/check_gui.py`.
 
+The Microphone page has **Test sidetone**: it writes only the sidetone level shown
+to the headset's working settings (backup + readback, nothing persisted) so you can
+speak into the mic and hear it. Other unwritten editor edits are reset by the reload.
+
 The app reads three EQ slots, all five frequencies and the three bell bandwidths,
 dock defaults, current battery/charging, hardware balance and selected EQ slot.
 It reads base/headset identity (firmware 36791/36154 on this hardware), and on
