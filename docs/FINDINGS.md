@@ -1,4 +1,6 @@
 # Astro A50 Gen 3 — Reverse-Engineering Findings
+> **Current canonical developer reference:** [Gen 3 Implementation Guide](GEN3-IMPLEMENTATION-GUIDE.md). This file preserves the research chronology, including A20-derived assumptions that were subsequently disproved on A50 PID 0015. The canonical guide summarizes the final A50-specific class-bound protocol and live evidence. Do not implement early hypotheses from this historical document without checking its later corrections.
+
 
 Worker: Astra. Date: 2026-10-24.
 
