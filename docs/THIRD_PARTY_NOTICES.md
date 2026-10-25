@@ -1,8 +1,8 @@
-# Astro A50 Linux — licenses and third-party notices
+# OpenAstroCC — licenses and third-party notices
 
 **Copyright © 2026 Benjamin Conner and contributors.**
 
-**Astro A50 Linux application source code:** **GNU General Public License
+**OpenAstroCC application source code:** **GNU General Public License
 version 3 only (GPL-3.0-only)**. The complete terms are in the repository's
 [LICENSE](../LICENSE) and bundled as `licenses/LICENSE`. Source is available
 at https://github.com/BenStein1/astro-a50-linux. The license permits copying,
