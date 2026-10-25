@@ -119,14 +119,14 @@ class AudioSetupDialog(QDialog):
 class AboutDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("About Astro A50 Linux")
+        self.setWindowTitle("About OpenAstroCC")
         self.resize(620, 490)
         layout = QVBoxLayout(self)
-        title = QLabel("Astro A50 Gen 3 · Linux")
+        title = QLabel("OpenAstroCC")
         title.setStyleSheet("font-size: 17px; font-weight: 700;")
         layout.addWidget(title)
         subtitle = QLabel(
-            "Open-source hardware integration for the Astro A50 Gen 3. "
+            "Open-source Command Center for the Astro A50 Gen 3. "
             "Not affiliated with Astro Gaming or Logitech.")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)

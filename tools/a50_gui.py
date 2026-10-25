@@ -643,7 +643,7 @@ class Window(QMainWindow):
 
     def __init__(self, offline=None, smoke=False):
         super().__init__()
-        self.setWindowTitle('Astro A50 · Linux')
+        self.setWindowTitle('OpenAstroCC · Astro A50 Gen 3')
         self.setWindowIcon(make_icon())
         self.resize(940, 760)
         self.document = None

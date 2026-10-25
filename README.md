@@ -1,4 +1,4 @@
-# Astro A50 Gen 3 for Linux
+# OpenAstroCC — Astro A50 Gen 3 for Linux
 
 **For developers and future maintainers:** [Gen 3 implementation and protocol guide](docs/GEN3-IMPLEMENTATION-GUIDE.md)
 documents the actual USB hardware, exact HID framing, all supported read/write
@@ -127,4 +127,4 @@ why, and the installed `priority.session = 0` node rules in
 
 ## New: automatic audio detector / safe setup (experimental)
 
-`python3 tools/a50_setup.py detect` discovers the connected Gen 3's six-channel Game, stereo Voice, and mono microphone endpoints from the actual USB ALSA descriptors. `preview` shows a single per-user WirePlumber config; `install --yes` creates it without restarting audio services or touching system defaults. `verify` checks the resulting native endpoints, and `uninstall --yes` removes only its owned file. **Cold reboot/hotplug are not yet hardware-verified**, and setup intentionally refuses to overwrite the existing legacy remap rules on Ben's machine. See [automatic setup guide](docs/AUTO-AUDIO-SETUP.md) and [Issue #9](https://github.com/BenStein1/astro-a50-linux/issues/9).
+`python3 tools/a50_setup.py detect` discovers the connected Gen 3's six-channel Game, stereo Voice, and mono microphone endpoints from the actual USB ALSA descriptors. `preview` shows a single per-user WirePlumber config; `install --yes` creates it without restarting audio services or touching system defaults. `verify` checks the resulting native endpoints, and `uninstall --yes` removes only its owned file. **Cold reboot/hotplug are not yet hardware-verified**, and setup intentionally refuses to overwrite the existing legacy remap rules on Ben's machine. See [automatic setup guide](docs/AUTO-AUDIO-SETUP.md) and [Issue #9](https://github.com/BenStein1/OpenAstroCC/issues/9).

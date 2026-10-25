@@ -20,11 +20,11 @@ The script also requires `curl` and the corresponding graphical libraries
 available on the host. It downloads the current maintained x86_64
 `appimagetool` from its official GitHub project, and creates:
 
-- `dist/Astro-A50-Linux-x86_64.AppImage`
-- `dist/Astro-A50-Linux-x86_64.AppImage.sha256`
+- `dist/OpenAstroCC-x86_64.AppImage`
+- `dist/OpenAstroCC-x86_64.AppImage.sha256`
 
-For a CI-tested download, open **GitHub Actions → Build Astro A50 Linux
-AppImage → successful run → Artifacts → Astro-A50-Linux-x86_64**. The
+For a CI-tested download, open **GitHub Actions → Build OpenAstroCC
+AppImage → successful run → Artifacts → OpenAstroCC-x86_64**. The
 `.github/workflows/appimage.yml` workflow runs offline tests, packages the
 real executable, performs an offscreen AppImage smoke test, and uploads the
 files as an artifact. Downloading the artifact doesn't publish a public
@@ -33,8 +33,8 @@ release automatically.
 ## Running
 
 ```bash
-chmod +x Astro-A50-Linux-x86_64.AppImage
-./Astro-A50-Linux-x86_64.AppImage
+chmod +x OpenAstroCC-x86_64.AppImage
+./OpenAstroCC-x86_64.AppImage
 ```
 
 No system Python or PyQt6 installation is required. The application can also
@@ -43,7 +43,7 @@ with a compatible JSON backup if one is available:
 
 ```bash
 QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1 \
-  ./Astro-A50-Linux-x86_64.AppImage --snapshot evidence/a50-baseline.json --smoke
+  ./OpenAstroCC-x86_64.AppImage --snapshot evidence/a50-baseline.json --smoke
 ```
 
 AppImage requires a reasonably modern glibc Linux system; this CI bundle is
@@ -87,3 +87,9 @@ AppImage, not internet-only links.
 presets have not independently been verified. Review this before public
 distribution. Keeping firmware and proprietary Windows app binaries out of
 the package is intentional.
+
+## AppImageLauncher compatibility
+
+If appimagetool fails with "Squashfs image uses (null) compression", that is a host AppImageLauncher compatibility issue with newer zstd-compressed AppImages, not a PyInstaller problem. The build script first attempts APPIMAGELAUNCHER_DISABLE=1 and APPIMAGE_EXTRACT_AND_RUN=1. If that still fails, the script locates the validated embedded SquashFS image and extracts appimagetool with unsquashfs (requires the distro's squashfs-tools package), then runs its extracted AppRun. This does not disable the host AppImageLauncher or change system settings.
+
+A finished AppImage can also trigger incompatibility in an older AppImageLauncher. Update that tool or disable its integration outside this build; do not modify desktop binfmt rules automatically.
