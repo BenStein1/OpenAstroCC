@@ -31,7 +31,7 @@ class PresetLibraryTests(unittest.TestCase):
         self.assertIn("PRO", builtin)
         self.assertIn("Bass & Clarity", bundled_custom)
         self.assertTrue(all(not p.writable for p in builtin.values()))
-        self.assertFalse(bundled_custom["Bass & Clarity"].writable)
+        self.assertTrue(bundled_custom["Bass & Clarity"].writable)
         self.assertEqual(a50_library.file_signature(bundled_custom["Bass & Clarity"]),
                          ((6, -2, 0, 2, 4), (90, 406, 783, 4001, 7001),
                           (8192, 8192, 8192)))

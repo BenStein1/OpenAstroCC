@@ -111,7 +111,7 @@ def custom_path(name):
     name = a50_names.normalize_name(name)
     if "/" in name or "\\" in name:
         raise ValueError("A preset name cannot contain a path separator")
-    slug = re.sub(r"[^A-Za-z0-9._ ()-]+", "_", name).strip(" .")
+    slug = re.sub(r"[^A-Za-z0-9._ ()&-]+", "_", name).strip(" .")
     if not slug or slug.startswith("."):
         raise ValueError("Choose a name that can be used as a filename")
     return custom_dir() / (slug + ".astroeq")

@@ -19,10 +19,10 @@ headset and base station (USB `9886:0015`).
 
 ## Installation
 
-There isn't a published binary release yet. For now, build the AppImage
-from the repository.
-
 ### AppImage (Linux x86_64)
+
+Download an AppImage from [GitHub Releases](https://github.com/BenStein1/OpenAstroCC/releases)
+when a tagged version is available. Until then, or to build the latest source:
 
 ```bash
 git clone https://github.com/BenStein1/OpenAstroCC.git
