@@ -18,6 +18,31 @@ dock pages use sliders too. Control semantics and the write path are unchanged.
 The Game/Voice end labels follow the existing label order and are not yet
 confirmed against hardware. Offscreen check: `QT_QPA_PLATFORM=offscreen python3 tools/check_gui.py`.
 
+## EQ slot names (local metadata)
+
+The hardware exposes three numbered EQ slots and their numeric parameters; **no
+name field has been established in the USB protocol**. The GUI therefore shows
+`EQ 1 · Unnamed`, `EQ 2 · Unnamed`, and `EQ 3 · Unnamed` until the user
+assigns names or imports a named preset. Each tab offers **Rename EQ…**.
+Labels are saved locally in
+`$XDG_CONFIG_HOME/astro-a50-linux/eq-names.json` (usually
+`~/.config/astro-a50-linux/eq-names.json`) and survive headset refresh and
+app relaunch without writing to the hardware.
+
+The classic Astro `.astroeq` format includes `[General] Name`:
+importing a preset adopts that name for the destination slot, and exporting
+uses the current slot name instead of generating `A50 slot N`. JSON device
+backups now include an optional `eq_names` array; older backups without it
+remain valid and do not overwrite existing local labels. The status bar shows
+the active numbered slot and its local name when the hardware reports that
+slot. The default **Unnamed** is deliberately honest: the app cannot know
+which old Windows preset is loaded based on slot number alone.
+
+Renaming a preset only changes computer-local metadata. EQ gain/frequency/
+bandwidth changes still require **Write working settings** and explicit
+**Save to headset** to persist to device storage. Failed/malformed local
+name files are not silently overwritten.
+
 The Microphone page has **Test sidetone**. It is a toggle: it writes only the
 sidetone level shown to the headset's working settings (backup + readback, nothing
 persisted) and starts a live peak meter of the A50 mic (`parec` on the `A50_Mic`
