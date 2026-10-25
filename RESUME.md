@@ -1,6 +1,26 @@
 # Resume after context clear
 
-Checkpoint: 2026-10-24. **Read this before changing anything or dispatching work.**
+Checkpoint: 2026-10-24 (updated by worker Astra-finish-sonnet, Claude/Sonnet).
+**Read this before changing anything or dispatching work.**
+
+## Mic/stream integration — VERIFIED, do not repeat
+
+Codex `bcf7b754-4adb-4666-a2d5-9ac38fa18f3b` hit its usage limit and its
+terminal failed; NVIDIA `4e1d4ca4-17ef-4201-8000-e7944c30a808` was cancelled
+with no findings (its mic/stream enum evidence was already saved to
+`artifacts/analysis/trace-*.json` beforehand and reused, not re-derived).
+Codex left mic/stream client code, GUI tabs, backup schema v2 and a 38-point
+reversible CLI test run **uncommitted**. Astra-finish-sonnet inspected
+(not re-ran) that evidence: `artifacts/backups/full-controls-roundtrip/`
+before.json == after.json exactly, and `capture.json` contains no `0x61`
+opcode — **sync was never sent**, confirmed empirically, not assumed. Offline
+`selftest` and `check_settings.py` pass. Extended `tools/check_gui.py --live`
+to click a Microphone-tab slider (sidetone) and the noise-gate combo through
+the real GUI and ran it live: exact before==after, evidence
+`artifacts/backups/20261024-194620-a3c06269/`. Ran `a50_gui.py --smoke` live;
+screenshot confirms slot1 still `[-4,-2,-3,7,7]` and the new tabs render.
+All of this is now **committed**. See PROJECT.md's matching section for the
+full account and docs/FEATURES.md for the per-feature ledger.
 
 ## Slot 1 EQ recovery — COMPLETE, do not repeat
 
@@ -83,9 +103,13 @@ continuing worker; do not revert/clean them or commit incomplete code blindly.
 
 ## Authorization and remaining live-test boundary
 
-Ben explicitly permits **Codex or NVIDIA free workers** now; this overrides the
-older Codex-retired shared note. Claude has about6% session left and may cap;
-avoid spending it. Skip Gemini. LiteLLM must use `nvidia-free-reasoning` or
+Ben explicitly instructed (2026-10-24, superseding the prior note below): use
+**Claude workers now**, choosing models to conserve tokens/session use —
+Sonnet did this pass. Codex `bcf7b754-4adb-4666-a2d5-9ac38fa18f3b` hit its
+usage limit and NVIDIA `4e1d4ca4-17ef-4201-8000-e7944c30a808` was cancelled;
+neither is active. No paid-credit Fable/Opus without separate authorization.
+Prior note for history: Ben had previously permitted **Codex or NVIDIA free
+workers**; skip Gemini; LiteLLM must use `nvidia-free-reasoning` or
 `nvidia-free-fast`, not the paid Merge model with exhausted credits.
 
 Full feature work includes verified reversible headset-setting validation with
@@ -102,12 +126,23 @@ do not mark100% from mocks, descriptors, or ACKs.
 
 ## Next sequence
 
-1. Collect current Codex-worker status; recovery is already verified at2561494.
-   Continue controls/UI using the recovered baseline; do not repeat recovery.
-2. Collect NVIDIA mic/stream evidence and save/review it for integration.
-3. Continue complete A50 GET/SET/ranges/apply semantics, PyQt6 controls,
-   validated backup/import/restore, reconnect, status and firmware-version READ.
-4. Update FEATURES/PROJECT/HANDOFF and commit meaningful milestones locally.
+Software implementation and reversible CLI+GUI verification are done for EQ,
+dock defaults, mic and stream controls (see "Mic/stream integration — VERIFIED"
+above and docs/FEATURES.md). What's left needs either Ben directly or new
+static RE, not more client/GUI code:
+
+1. Audio-profile approval is still unanswered — do not infer it from this
+   pass. Once answered: switch to pro-audio, test low-volume playback, and
+   verify independent Game/Voice/mic routing.
+2. Physical tests only Ben can do: dock brightness/alert-volume listening,
+   sidetone/mic-EQ/noise-gate audibility and recording, battery charging
+   transition, physical balance/EQ-select interaction, unplug/reinsert.
+3. Persistence: `sync` (`0x61`) has never been sent in this project. Test it
+   only with a fresh full baseline, confirm working==stored readback, then a
+   real power-cycle to prove persistence — needs Ben physically present.
+4. Dolby/mic-flip/headset-link status mapping remains an open hypothesis
+   (docs/A50-PROTOCOL.md): one `0x72` status field (field_id1) has no bound
+   consumer and was constant in every capture so far. Needs a fresh static
+   trace of its consumer, or a live toggle test with Ben.
+5. Update FEATURES/PROJECT/HANDOFF and commit meaningful milestones locally.
    Never push without Ben's separate instruction.
-5. Complete approved live-audio and physical acceptance tests with Ben before
-   claiming feature completion. Preserve precise remaining gaps otherwise.

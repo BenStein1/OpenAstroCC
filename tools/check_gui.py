@@ -56,6 +56,30 @@ def run(live):
         settle(window)
         assert window.document['slots'] == before['slots']
         assert window.document['settings'] == before['settings']
+
+        assert window.document['schema'] == 'astro-a50-gen3-v2', 'live device must expose mic/stream controls'
+        slider = window.sliders['sidetone']
+        old_level = slider.value()
+        slider.setValue(old_level + (1 if old_level < 100 else -1))
+        wanted_level = slider.value()
+        old_gate_index = window.noise_gate.currentIndex()
+        window.noise_gate.setCurrentIndex((old_gate_index + 1) % window.noise_gate.count())
+        wanted_gate = window.noise_gate.currentIndex()
+        window.buttons['Write working settings'].click()
+        settle(window)
+        assert window.connected, window.status_label.text()
+        assert window.document['sliders']['sidetone']['working'] == wanted_level
+        assert window.document['microphone']['noise_gate']['working'] == a50.NOISE_GATE_PACKETS[wanted_gate].hex()
+        with a50.A50Client() as client:
+            assert client.slider('sidetone')['working'] == wanted_level
+            assert client.microphone()['noise_gate']['working'] == a50.NOISE_GATE_PACKETS[wanted_gate].hex()
+        slider.setValue(old_level)
+        window.noise_gate.setCurrentIndex(old_gate_index)
+        window.buttons['Write working settings'].click()
+        settle(window)
+        assert window.document['sliders'] == before['sliders']
+        assert window.document['microphone'] == before['microphone']
+        print('PASS: live GUI mic/stream slider and noise-gate button write/readback/restore')
         # Exercise disconnect handling in the real GUI; physical USB stays attached.
         with patch.object(a50.A50Client, '__enter__', side_effect=OSError('synthetic disconnect')):
             window.poll()

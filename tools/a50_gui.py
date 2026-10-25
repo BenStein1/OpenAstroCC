@@ -8,7 +8,7 @@ from pathlib import Path
 from PyQt6.QtCore import QThread, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGridLayout, QFormLayout, QLabel, QPushButton, QTabWidget,
-    QSpinBox, QDoubleSpinBox, QFileDialog, QMessageBox, QPlainTextEdit)
+    QSpinBox, QDoubleSpinBox, QComboBox, QFileDialog, QMessageBox, QPlainTextEdit)
 import a50
 
 
@@ -38,6 +38,7 @@ class Window(QMainWindow):
         self.busy = False
         self.connected = False
         self.identity = None
+        self.audio = None
         self.jobs = set()
         central = QWidget()
         self.setCentralWidget(central)
@@ -98,6 +99,28 @@ class Window(QMainWindow):
         form.addRow('Alert volume (0–100)', self.alert)
         form.addRow(QLabel('Physical listening and visual confirmation are still pending.'))
         self.tabs.addTab(page, 'Dock / defaults')
+        self.sliders = {}
+        page = QWidget()
+        form = QFormLayout(page)
+        for name, label in [('microphone_output', 'Microphone output'), ('sidetone', 'Onboard sidetone')]:
+            self.sliders[name] = self.spin(0, 100)
+            form.addRow(label, self.sliders[name])
+        self.mic_eq = QComboBox()
+        self.mic_eq.addItems(a50.MIC_EQ_NAMES)
+        self.noise_gate = QComboBox()
+        self.noise_gate.addItems(a50.NOISE_GATE_NAMES)
+        form.addRow('Microphone EQ', self.mic_eq)
+        form.addRow('Noise gate', self.noise_gate)
+        form.addRow(QLabel('Onboard controls; listening and recording confirmation remain pending.'))
+        self.mic_tab = self.tabs.addTab(page, 'Microphone')
+        page = QWidget()
+        form = QFormLayout(page)
+        for name, label in [('stream_game', 'Game audio'), ('stream_chat', 'Chat / Voice audio'),
+                            ('stream_microphone', 'Microphone'), ('stream_aux', 'Auxiliary input')]:
+            self.sliders[name] = self.spin(0, 100)
+            form.addRow(label, self.sliders[name])
+        form.addRow(QLabel('USB stream mix levels; capture/listening confirmation remains pending.'))
+        self.stream_tab = self.tabs.addTab(page, 'Stream mix')
         self.details = QPlainTextEdit()
         self.details.setReadOnly(True)
         self.tabs.addTab(self.details, 'Device / audio')
@@ -144,6 +167,7 @@ class Window(QMainWindow):
 
     def failed(self, message):
         self.connected = False
+        self.identity = None
         self.status_label.setText('A50 operation failed: ' + message)
         self.notice.setText('Reconnect / refresh to read current device state. ' + message)
         self.update_enabled()
@@ -153,24 +177,29 @@ class Window(QMainWindow):
     def refresh(self):
         def read():
             if self.offline:
-                return a50.validate_backup(json.loads(Path(self.offline).read_text())), None
+                return a50.validate_backup(json.loads(Path(self.offline).read_text())), None, None
             with a50.A50Client() as client:
                 document = client.snapshot()
                 identity = self.identity or client.identity()
-                return document, identity
+            import a50_audio
+            try:
+                audio = a50_audio.inventory()
+            except Exception as exc:
+                audio = {'inventory_error': str(exc)}
+            return document, identity, audio
         self.run(read, self.refreshed)
 
     def refreshed(self, result):
-        document, self.identity = result
+        document, self.identity, self.audio = result
         self.connected = not self.offline
         self.populate(document)
         self.show_status(document['status'])
         self.details.setPlainText(json.dumps({'identity': self.identity, 'status': document['status'],
             'stored_EQ': [{ 'slot': s['slot'], 'gains': s['gains']['stored'],
                            'bands': [b['stored'] for b in s['bands']]} for s in document['slots']],
-            'audio': 'Game: 6ch 48k; Voice: stereo 48k; mic: mono 16k. Audio profile unchanged. '
-                     'Profile switching and test sounds await Ben’s approval.',
-            'pending': 'Mic/stream controls await complementary A50 evidence; physical Dolby/mute proof pending.'}, indent=2))
+            'audio': self.audio,
+            'microphone': document.get('microphone'), 'sliders': document.get('sliders'),
+            'pending': 'Physical mic/stream listening, Dolby/mute and power-cycle persistence proof pending.'}, indent=2))
         if self.smoke:
             assert self.eq[0][0][0].value() == document['slots'][0]['gains']['working'][0]
             QTimer.singleShot(100, self.smoke_finished)
@@ -194,6 +223,15 @@ class Window(QMainWindow):
         self.balance.setValue(settings['default_balance'])
         self.brightness.setValue(round(sum(settings['brightness_channels']) / 9))
         self.alert.setValue(settings['alert_volume'])
+        full = document['schema'] == 'astro-a50-gen3-v2'
+        self.tabs.setTabEnabled(self.mic_tab, full)
+        self.tabs.setTabEnabled(self.stream_tab, full)
+        if full:
+            for name, spin in self.sliders.items():
+                spin.setValue(document['sliders'][name]['working'])
+            self.mic_eq.setCurrentIndex(document['microphone']['eq'])
+            self.noise_gate.setCurrentIndex([p.hex() for p in a50.NOISE_GATE_PACKETS].index(
+                document['microphone']['noise_gate']['working']))
         self.update_enabled()
 
     def draft(self):
@@ -208,6 +246,12 @@ class Window(QMainWindow):
         settings['alert_volume'] = self.alert.value()
         if self.brightness.value() != round(sum(settings['brightness_channels']) / 9):
             settings['brightness_channels'] = [self.brightness.value()] * 9
+        if result['schema'] == 'astro-a50-gen3-v2':
+            for name, spin in self.sliders.items():
+                result['sliders'][name]['working'] = spin.value()
+            result['microphone']['eq'] = self.mic_eq.currentIndex()
+            result['microphone']['noise_gate']['working'] = a50.NOISE_GATE_PACKETS[
+                self.noise_gate.currentIndex()].hex()
         return a50.validate_backup(result)
 
     def show_status(self, status):
@@ -231,7 +275,7 @@ class Window(QMainWindow):
         target = self.draft()
         displayed = copy.deepcopy(self.document)
         def action(client, before):
-            if before['slots'] != displayed['slots'] or before['settings'] != displayed['settings']:
+            if not a50.same_settings(before, displayed):
                 raise a50.EqReadError('Settings changed since refresh; refresh before writing.')
             a50.restore_working(client, target)
         self.run(lambda: a50.change_with_backup(action), self.changed)
@@ -242,7 +286,7 @@ class Window(QMainWindow):
         self.notice.setText('Readback verified. Backup and exact TX/RX: ' + directory)
 
     def persist(self):
-        if self.draft()['slots'] != self.document['slots'] or self.draft()['settings'] != self.document['settings']:
+        if not a50.same_settings(self.draft(), self.document):
             self.notice.setText('Write working settings first; pending editor changes have not reached the headset.')
             return
         answer = QMessageBox.question(self, 'Save all working settings?',
@@ -250,7 +294,12 @@ class Window(QMainWindow):
             'A backup will be saved first. Continue?')
         if answer != QMessageBox.StandardButton.Yes:
             return
-        self.run(lambda: a50.change_with_backup(lambda client, _: client.sync(), persistent=True), self.changed)
+        displayed = copy.deepcopy(self.document)
+        def action(client, before):
+            if not a50.same_settings(before, displayed):
+                raise a50.EqReadError('Settings changed since refresh; refresh before saving.')
+            client.sync()
+        self.run(lambda: a50.change_with_backup(action, persistent=True), self.changed)
 
     def backup(self):
         path, _ = QFileDialog.getSaveFileName(self, 'Export device backup', '', 'JSON (*.json)')
@@ -273,6 +322,13 @@ class Window(QMainWindow):
                     for band, imported in zip(old['bands'], new['bands']):
                         band['working'] = imported['working']
                 current['settings'] = wanted['settings']
+                if wanted['schema'] == 'astro-a50-gen3-v2':
+                    if current['schema'] != 'astro-a50-gen3-v2':
+                        raise ValueError('Full microphone backup requires a current full device snapshot')
+                    for name, banks in wanted['sliders'].items():
+                        current['sliders'][name]['working'] = banks['working']
+                    current['microphone']['eq'] = wanted['microphone']['eq']
+                    current['microphone']['noise_gate']['working'] = wanted['microphone']['noise_gate']['working']
                 baseline = self.document
                 self.populate(current)
                 self.document = baseline

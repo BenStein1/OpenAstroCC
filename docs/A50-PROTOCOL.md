@@ -107,6 +107,18 @@ hardware balance0..255 (0x488950), +14 has battery0..100 in low7bits and
 charging in highbit (0x488790). Other status bytes are retained raw; Dolby,
 flip mute and connection bits are not guessed from their values.
 
+Evidence review (no new RE): every retained `0x72` capture across all backup
+directories decodes as four fixed 4-byte groups `[tag02, field_id, value, 00]`
+at payload offsets0,4,8,12 — field_id2=EQslot(+6), field_id3=balance(+10),
+field_id4=battery/charging(+14), matching the bindings above. field_id1
+(payload+2, value01 in every capture) has no bound consumer and never varied
+in any capture taken so far, all with the headset connected and undisturbed.
+It is a plausible slot for a single connection/link flag, but that is a
+hypothesis, not a reading: nothing here was toggled through Dolby, mic-flip
+or a disconnect during any capture, so no evidence distinguishes "connected"
+from any other constant state. Resolving it needs either a fresh static trace
+of its consumer or a live toggle test with Ben; neither is done here.
+
 Identity branch: runtime PID15 differs from PID14, choosing03 for base and83
 for headset. The latter uses the shared high-bit extended marker, not a guessed
 payload. 0x484440 copies37 reply bytes. 0x484540 and0x484170 use the uint32 at

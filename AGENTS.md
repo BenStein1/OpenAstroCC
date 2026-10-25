@@ -2,11 +2,16 @@
 
 Read PROJECT.md, HANDOFF.md and docs/A50-PROTOCOL.md before continuing.
 
-Ben's current instruction (2026-10-24) explicitly authorizes **Codex workers**
-for this project, superseding the older shared instruction that Codex workers
-were retired. Claude is nearly capped. Use Codex or LiteLLM models
-`litellm/nvidia-free-reasoning` / `litellm/nvidia-free-fast`; skip Gemini and
-the depleted paid Merge routes. The supervisor owns worker dispatch.
+Ben's latest instruction (2026-10-24) explicitly authorizes **Claude workers**
+now, choosing models to conserve tokens/session use; this supersedes the
+earlier note below authorizing Codex instead. No paid-credit Fable/Opus
+without separate authorization. See docs/WORKERS.md for current/prior worker
+status. The supervisor owns worker dispatch.
+
+Prior note (history): explicitly authorized Codex workers, superseding the
+older shared instruction that Codex workers were retired; LiteLLM models
+`litellm/nvidia-free-reasoning` / `litellm/nvidia-free-fast` were permitted,
+skipping Gemini and the depleted paid Merge routes.
 
 The goal is all documented Gen 3 controls and a usable native Linux app.
 Track each feature's implementation and real verification separately. Update

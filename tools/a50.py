@@ -45,6 +45,19 @@ OPCODES = {0x63: "SET_EQ_GAINS", 0x69: "READ_EQ_GAINS",
            0x72: "READ_CURRENT_UI", 0x61: "SYNC"}
 
 
+# Europa microphone constructor0x484e70; enum labels0x425710/0x425a60.
+NOISE_GATE_NAMES = ("Home", "Streaming", "Tournament", "Night")
+MIC_EQ_NAMES = ("Bright", "Airy", "Warm")
+NOISE_GATE_PACKETS = tuple(struct.pack("<III", *words) for words in (
+    (0x08e40132, 0x00c60f90, 0x0080002a),
+    (0x08e40132, 0x00c60790, 0x00800067),
+    (0x08e40132, 0x00c60f90, 0x0080000a),
+    (0x09040122, 0x00c60f90, 0x008000ca)))
+# A50StreamPort0x49d380 feature IDs + Europa SET0x4896f0: not guessed order.
+SLIDERS = {"stream_microphone": 0, "stream_chat": 1, "stream_game": 2,
+           "stream_aux": 3, "microphone_output": 4, "sidetone": 5}
+
+
 # --- protocol framing (docs/FINDINGS.md §4) --------------------------------
 
 def frame(cmd, payload, seq=0):
@@ -364,7 +377,7 @@ class A50Client:
     def _exchange(self, opcode, payload=b"", echo=b"", minimum=0):
         # Private allowlist, never exposed as a CLI or UI raw-command feature.
         if opcode not in (0x69, 0x70, 0x77, 0x79, 0x7a, 0x72, 0x63, 0x6f, 0x73, 0x75, 0x76,
-                          0x03, 0x83, 0x61):
+                          0x03, 0x83, 0x61, 0x68, 0x62, 0x6a, 0x64, 0x7b, 0x71):
             raise ValueError("operation is not enabled")
         if self.fd is None:
             raise EqReadError("client is not open")
@@ -446,7 +459,44 @@ class A50Client:
                 band["working"] != band["stored"] for band in slot["bands"])
                for slot in after["slots"]):
             raise EqReadError("sync acknowledged but EQ banks still differ")
+        if any(banks['working'] != banks['stored'] for banks in after['sliders'].values()) or (
+                after['microphone']['noise_gate']['working'] != after['microphone']['noise_gate']['stored']):
+            raise EqReadError("sync acknowledged but microphone/stream banks still differ")
         return after
+
+    def slider(self, name):
+        if name not in SLIDERS:
+            raise ValueError("unknown A50 slider")
+        selector = SLIDERS[name]
+        data = self._exchange(0x68, bytes([selector]), bytes([0x68, selector]), 4)
+        return {"working": data[2], "stored": data[3]}
+
+    def set_slider(self, name, value):
+        validate_slider(name, value)
+        selector = SLIDERS[name]
+        self._exchange(0x62, bytes([selector, value]), bytes([0x62, selector]), 2)
+        if self.slider(name)["working"] != value:
+            raise EqReadError("%s readback differs" % name)
+
+    def microphone(self):
+        data = self._exchange(0x6a, echo=b"\x6a", minimum=25)
+        gates = {"working": data[1:13].hex(), "stored": data[13:25].hex()}
+        mic_eq = self._exchange(0x7b, minimum=1)[0]
+        return {"noise_gate": gates, "eq": mic_eq}
+
+    def set_noise_gate(self, mode):
+        if type(mode) is not int or mode not in range(4):
+            raise ValueError("noise gate must be Home0, Streaming1, Tournament2 or Night3")
+        self._exchange(0x64, NOISE_GATE_PACKETS[mode], b"\x64", 1)
+        if self.microphone()["noise_gate"]["working"] != NOISE_GATE_PACKETS[mode].hex():
+            raise EqReadError("noise gate readback differs")
+
+    def set_mic_eq(self, mode):
+        if type(mode) is not int or mode not in range(3):
+            raise ValueError("mic EQ must be Bright0, Airy1 or Warm2")
+        self._exchange(0x71, bytes([mode]), b"\x71", 1)
+        if self.microphone()["eq"] != mode:
+            raise EqReadError("microphone EQ readback differs")
 
     def set_gains(self, slot, gains):
         self._slot(slot)
@@ -479,17 +529,19 @@ class A50Client:
         for slot in range(1, 4):
             slots.append({"slot": slot, "gains": self.gains(slot),
                           "bands": [self.coefficients(slot, band) for band in range(1, 6)]})
-        return {"schema": "astro-a50-gen3-v1", "vid": VID, "pid": PID,
-                "slots": slots, "settings": self.settings(), "status": self.status()}
+        return {"schema": "astro-a50-gen3-v2", "vid": VID, "pid": PID,
+                "slots": slots, "settings": self.settings(), "status": self.status(),
+                "sliders": {name: self.slider(name) for name in SLIDERS},
+                "microphone": self.microphone()}
 
 
 
 def validate_backup(document):
     """Validate the entire imported settings document before any transport."""
-    if not isinstance(document, dict) or document.get("schema") != "astro-a50-gen3-v1" or (
+    if not isinstance(document, dict) or document.get("schema") not in ("astro-a50-gen3-v1", "astro-a50-gen3-v2") or (
             type(document.get("vid")) is not int or document["vid"] != VID or
             type(document.get("pid")) is not int or document["pid"] != PID):
-        raise ValueError("backup must be astro-a50-gen3-v1 for USB 9886:0015")
+        raise ValueError("backup must be astro-a50-gen3-v1/v2 for USB 9886:0015")
     slots = document.get("slots")
     if not isinstance(slots, list) or len(slots) != 3:
         raise ValueError("backup requires exactly three slots")
@@ -504,8 +556,25 @@ def validate_backup(document):
         raise ValueError("backup mediator settings are missing or unknown")
     for name, value in document["settings"].items():
         validate_setting(name, value)
+    if document["schema"] == "astro-a50-gen3-v2":
+        if set(document["sliders"]) != set(SLIDERS):
+            raise ValueError("all six A50 sliders are required")
+        for name, banks in document["sliders"].items():
+            for bank in ("working", "stored"):
+                validate_slider(name, banks[bank])
+        mic = document["microphone"]
+        if type(mic["eq"]) is not int or mic["eq"] not in range(3):
+            raise ValueError("invalid mic EQ")
+        for bank in ("working", "stored"):
+            if mic["noise_gate"][bank] not in [p.hex() for p in NOISE_GATE_PACKETS]:
+                raise ValueError("custom/unknown noise gate cannot be imported for writing")
     return document
 
+
+
+def validate_slider(name, value):
+    if name not in SLIDERS or type(value) is not int or not 0 <= value <= 100:
+        raise ValueError("known A50 slider and integer level0..100 required")
 
 def validate_gains(gains):
     if not isinstance(gains, list) or len(gains) != 5 or any(
@@ -552,6 +621,16 @@ def restore_working(client, document, bank="working"):
     for name, value in document["settings"].items():
         if value != current["settings"][name]:
             client.set_setting(name, value)
+    if document["schema"] == "astro-a50-gen3-v2":
+        for name, banks in document["sliders"].items():
+            if banks[bank] != current["sliders"][name]["working"]:
+                client.set_slider(name, banks[bank])
+        mic = document["microphone"]
+        if mic["eq"] != current["microphone"]["eq"]:
+            client.set_mic_eq(mic["eq"])
+        gate = mic["noise_gate"][bank]
+        if gate != current["microphone"]["noise_gate"]["working"]:
+            client.set_noise_gate([p.hex() for p in NOISE_GATE_PACKETS].index(gate))
     after = client.snapshot()
     for wanted, actual in zip(document["slots"], after["slots"]):
         if wanted["gains"][bank] != actual["gains"]["working"] or any(
@@ -563,8 +642,20 @@ def restore_working(client, document, bank="working"):
         if old["gains"]["stored"] != actual["gains"]["stored"] or any(
                 x["stored"] != y["stored"] for x, y in zip(old["bands"], actual["bands"])):
             raise EqReadError("unexpected stored EQ change without sync")
+    if document["schema"] == "astro-a50-gen3-v2":
+        for name, banks in document["sliders"].items():
+            if banks[bank] != after["sliders"][name]["working"] or (
+                    current["sliders"][name]["stored"] != after["sliders"][name]["stored"]):
+                raise EqReadError("slider working/stored restoration differs: " + name)
+        if after["microphone"]["eq"] != mic["eq"] or after["microphone"]["noise_gate"]["working"] != gate or (
+                after["microphone"]["noise_gate"]["stored"] != current["microphone"]["noise_gate"]["stored"]):
+            raise EqReadError("microphone restoration differs")
     return after
 
+
+
+def same_settings(first, second):
+    return all(first.get(key) == second.get(key) for key in ('slots', 'settings', 'sliders', 'microphone'))
 
 def save_json(path, value):
     with open(path, "x", encoding="utf-8") as fh:

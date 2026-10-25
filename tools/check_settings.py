@@ -39,6 +39,26 @@ def offline():
             else:
                 raise AssertionError('invalid operation accepted')
         assert not sent, 'invalid values must fail before transport'
+    sent.clear()
+    with patch.object(client, '_exchange', side_effect=exchange), patch.object(
+            client, 'slider', return_value={'working':37}), patch.object(
+            client, 'microphone', return_value={'eq':2, 'noise_gate':{
+                'working':a50.NOISE_GATE_PACKETS[1].hex()}}):
+        for name, selector in a50.SLIDERS.items():
+            client.set_slider(name, 37)
+            assert sent[-1] == (0x62, bytes([selector, 37]))
+        client.set_mic_eq(2)
+        assert sent[-1] == (0x71, bytes([2]))
+        client.set_noise_gate(1)
+        assert sent[-1] == (0x64, bytes.fromhex('3201e4089007c60067008000'))
+        for action in (lambda:client.set_slider('sidetone',101),
+                       lambda:client.set_slider('unknown',10), lambda:client.set_mic_eq(3),
+                       lambda:client.set_noise_gate(-1)):
+            before = len(sent)
+            try: action()
+            except ValueError: pass
+            else: raise AssertionError('unbounded microphone operation accepted')
+            assert before == len(sent)
     print('settings offline checks OK')
 
 
@@ -107,6 +127,20 @@ def backup_checks():
         except a50.EqReadError: pass
         else: raise AssertionError('status0 accepted for GET')
     print('backup validation, exact preset round trip, selective restore and ACK checks OK')
+    import a50_audio
+    props = {'device.vendor.id':'0x9886', 'device.product.id':'0x0015', 'device.name':'a50-card'}
+    card = {'name':'a50-card', 'index':7, 'properties': props, 'active_profile':'original',
+            'profiles':{'pro-audio':{'available':True, 'sinks':2, 'sources':2}}}
+    node = {'name':'existing-route', 'properties':props, 'channel_map':'front-left,front-right'}
+    prepared = a50_audio.plan([card], [node], [])
+    assert prepared['active_sinks'][0]['name'] == 'existing-route'
+    assert prepared['restore_argv_after_approval'][-1] == 'original'
+    with patch.object(a50_audio.subprocess, 'run') as run:
+        run.return_value.stdout = '[]'
+        try: a50_audio.inventory()
+        except ValueError: pass
+        assert all(call.args[0][2] == 'list' for call in run.call_args_list)
+    print('audio plan identity/route matching and read-only subprocess checks OK')
 
 
 if __name__ == '__main__':

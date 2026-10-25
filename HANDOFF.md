@@ -1,3 +1,22 @@
+# Mic/stream integration verified — 2026-10-24
+
+Worker Astra-finish-sonnet (Claude/Sonnet) is the sole active implementation
+worker; it verified and closed out Codex's uncommitted mic/stream work after
+Codex hit its usage limit (it did not go stale/revert anything). Full details,
+evidence paths and exact commands run: see PROJECT.md's matching section and
+docs/FEATURES.md. Short version: 38-point CLI reversible check and a live
+GUI mic/stream button test both pass with exact before==after; no sync was
+sent; slot1 recovery baseline `[-4,-2,-3,7,7]` remains intact; the one
+remaining status-byte mapping (Dolby/flip/link) is documented as an open
+hypothesis in docs/A50-PROTOCOL.md, not claimed.
+
+Audio-plan follow-up: `tools/a50_audio.py` reads card/sink/source JSON only,
+validates USB9886:0015, records exact current/target/restore profiles, and lists
+existing physical/virtual routes. Native Device/audio tab shows the plan. Host
+currently has physical IEC958 plus pre-existing virtual A50_Game/A50_Voice
+sinks; they were not created/modified here. Verified plan in ignored
+`artifacts/backups/audio-plan-verified.json`; active profile unchanged.
+
 # Latest app milestone — 2026-10-24
 
 Recovered slot1 remains intact. Thirty live reversible checks pass: gains and

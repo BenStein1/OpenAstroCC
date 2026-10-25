@@ -1,3 +1,36 @@
+# Mic/stream integration verified — 2026-10-24
+
+Worker Astra-finish-sonnet (Claude, Sonnet) verified and closed out the
+mic/stream work Codex left uncommitted when it hit its usage limit. Inspected
+(not re-ran) `artifacts/backups/full-controls-roundtrip/`: all 38 reversible
+CLI checks (EQ + six sliders + mic EQ + noise gate) restore to an exact
+before==after document, and no `0x61` SYNC was sent (confirmed from
+`capture.json` opcodes) — Codex's persistent-sync step never ran. Offline
+`selftest`/`check_settings.py` pass. Extended `tools/check_gui.py --live` to
+click the sidetone slider and noise-gate combo through the real GUI
+(previously only the EQ gain button path was covered); ran it live against
+Ben's connected A50 — exact before==after, evidence
+`artifacts/backups/20261024-194620-a3c06269/`. Ran `tools/a50_gui.py --smoke`
+live to confirm the new Microphone/Stream mix tabs render without error;
+screenshot shows slot1 still `[-4,-2,-3,7,7]`, recovered baseline intact.
+Reviewed every retained `0x72` status capture across all backup directories
+(no new RE): the 16-byte payload is four TLV groups: field_id1 is the only
+one with no bound consumer and never varied (headset was never
+disconnected/flipped/Dolby-toggled during any capture) — documented as a
+hypothesis in docs/A50-PROTOCOL.md, not a claim; resolving it needs a fresh
+static trace or a live toggle test with Ben. `tools/a50_audio.py` was already
+complete (read-only PipeWire plan); no changes needed. Updated
+docs/FEATURES.md rows for mic/noise-gate/stream sliders and JSON backup
+schema v2 to reflect actual tested state. No writes beyond the two reversible
+live tests above; no sync, firmware, profile switch, or sound playback.
+
+Audio-plan follow-up: `tools/a50_audio.py` reads card/sink/source JSON only,
+validates USB9886:0015, records exact current/target/restore profiles, and lists
+existing physical/virtual routes. Native Device/audio tab shows the plan. Host
+currently has physical IEC958 plus pre-existing virtual A50_Game/A50_Voice
+sinks; they were not created/modified here. Verified plan in ignored
+`artifacts/backups/audio-plan-verified.json`; active profile unchanged.
+
 # Latest app milestone — 2026-10-24
 
 Recovered slot1 remains intact. Thirty live reversible checks pass: gains and
@@ -37,7 +70,7 @@ Older unresolved-bank and no-write descriptions below are superseded.
 name: Astro A50 Linux
 status: active
 summary: Native Linux support for the Astro A50 Gen 3 headset, including Command Center settings and separate Game and Voice audio paths.
-next: Trace the sibling 0x70/{slot,band} coefficient read (docs/A50-PROTOCOL.md) and the remaining opcode space; then test the native client and separate Game/Voice playback on hardware.
+next: Get Ben's audio-profile approval and run physical listening/Dolby/mic-flip/headset-link/power-cycle-persistence tests; software implementation and reversible CLI+GUI verification for EQ/dock/mic/stream are done.
 updated: 2026-10-24
 ---
 

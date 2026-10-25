@@ -41,12 +41,27 @@ def run(directory):
                 client.set_setting(name, value)
                 client.set_setting(name, old)
                 completed.append(name)
+            for name, banks in before['sliders'].items():
+                old = banks['working']
+                client.set_slider(name, old + (1 if old < 100 else -1))
+                client.set_slider(name, old)
+                completed.append(name)
+            mic = before['microphone']
+            client.set_mic_eq((mic['eq'] + 1) % 3)
+            client.set_mic_eq(mic['eq'])
+            completed.append('microphone EQ')
+            mode = [p.hex() for p in a50.NOISE_GATE_PACKETS].index(mic['noise_gate']['working'])
+            client.set_noise_gate((mode + 1) % 4)
+            client.set_noise_gate(mode)
+            completed.append('microphone noise gate')
         finally:
             try:
                 restored = a50.restore_working(client, before)
                 a50.save_json(directory / 'after.json', restored)
                 assert before['slots'] == restored['slots'], 'EQ restoration differs'
                 assert before['settings'] == restored['settings'], 'mediator restoration differs'
+                assert before['sliders'] == restored['sliders'], 'slider restoration differs'
+                assert before['microphone'] == restored['microphone'], 'microphone restoration differs'
             finally:
                 a50.save_json(directory / 'capture.json', client.capture)
                 a50.save_json(directory / 'completed.json', completed)
