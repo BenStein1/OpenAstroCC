@@ -132,6 +132,12 @@ def run(live):
             # Moving a gain marks the edited file as modified, but changes no hardware.
             window.eq[2][0][0].setValue(5)
             assert '(modified)' in window.eq_name_labels[2].text()
+            astro_index = picker.findText('Astro · ASTRO')
+            assert astro_index >= 0
+            with patch('a50_gui.QMessageBox.question',
+                       return_value=QMessageBox.StandardButton.Cancel):
+                window.choose_library_preset(3, astro_index)
+            assert window.eq[2][0][0].value() == 5, 'cancelled switch discarded edits'
 
             factory = root / 'presets/ASTRO.astroeq'
             unchanged_factory = factory.read_bytes()
