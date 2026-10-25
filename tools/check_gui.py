@@ -8,7 +8,7 @@ import tempfile
 import time
 from pathlib import Path
 from unittest.mock import patch
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtWidgets import QApplication, QMessageBox, QAbstractSpinBox
 from PyQt6.QtTest import QTest
 import a50
 import a50_names
@@ -36,8 +36,16 @@ def run(live):
     window.timer.stop()
     before = copy.deepcopy(window.document)
     assert window.draft()['slots'] == before['slots']
+    # The spinbox stays editable but doesn't depend on platform-theme arrows.
+    assert all(freq.buttonSymbols() == QAbstractSpinBox.ButtonSymbols.NoButtons
+               for bank in window.eq for _, freq, _ in bank)
     if not live:
-        assert not window.buttons['Write working settings'].isEnabled()
+        assert not window.buttons['Test Current Settings'].isEnabled()
+        # Editing an exact frequency still updates the draft without steppers.
+        old_frequency = before['slots'][1]['bands'][0]['working']['frequency']
+        window.eq[1][0][1].setValue(old_frequency + 1)
+        assert window.draft()['slots'][1]['bands'][0]['working']['frequency'] == old_frequency + 1
+        window.eq[1][0][1].setValue(old_frequency)
         window.eq[1][0][0].setValue(before['slots'][1]['gains']['working'][0] + 1)
         assert window.draft()['slots'] != before['slots']
         # The 1-octave reference is in the slider's center; programmatically
@@ -183,14 +191,14 @@ def run(live):
         old = widget.value()
         widget.setValue(old + (1 if old < 12 else -1))
         wanted = widget.value()
-        window.buttons['Write working settings'].click()
+        window.buttons['Test Current Settings'].click()
         settle(window)
         assert window.connected, window.status_label.text()
         assert window.document['slots'][1]['gains']['working'][0] == wanted
         with a50.A50Client() as client:
             assert client.gains(2)['working'][0] == wanted
         widget.setValue(old)
-        window.buttons['Write working settings'].click()
+        window.buttons['Test Current Settings'].click()
         settle(window)
         assert window.document['slots'] == before['slots']
         assert window.document['settings'] == before['settings']
@@ -203,7 +211,7 @@ def run(live):
         old_gate_index = window.noise_gate.currentIndex()
         window.noise_gate.setCurrentIndex((old_gate_index + 1) % window.noise_gate.count())
         wanted_gate = window.noise_gate.currentIndex()
-        window.buttons['Write working settings'].click()
+        window.buttons['Test Current Settings'].click()
         settle(window)
         assert window.connected, window.status_label.text()
         assert window.document['sliders']['sidetone']['working'] == wanted_level
@@ -213,7 +221,7 @@ def run(live):
             assert client.microphone()['noise_gate']['working'] == a50.NOISE_GATE_PACKETS[wanted_gate].hex()
         slider.setValue(old_level)
         window.noise_gate.setCurrentIndex(old_gate_index)
-        window.buttons['Write working settings'].click()
+        window.buttons['Test Current Settings'].click()
         settle(window)
         assert window.document['sliders'] == before['sliders']
         assert window.document['microphone'] == before['microphone']
@@ -223,11 +231,11 @@ def run(live):
             window.poll()
             settle(window)
             assert not window.connected
-            assert not window.buttons['Write working settings'].isEnabled()
+            assert not window.buttons['Test Current Settings'].isEnabled()
         window.poll()
         settle(window)
         assert window.connected, window.status_label.text()
-        assert window.buttons['Write working settings'].isEnabled()
+        assert window.buttons['Test Current Settings'].isEnabled()
         assert window.document['slots'] == before['slots']
         window.grab().save('/tmp/a50-ui-workflow.png')
         print('PASS: live GUI button write/readback/restore; synthetic disconnect/reconnect; no sync/audio')
