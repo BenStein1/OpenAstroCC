@@ -17,8 +17,31 @@ import shutil
 import subprocess
 import sys
 
-HELPER = re.compile(r"^(?:libxcb-[A-Za-z0-9_-]+|libxkbcommon(?:-x11)?)\\.so\\.[0-9]+$")
+# Qt may load some XCB helpers indirectly, so ldd on libqxcb.so alone
+# does not reliably expose every library needed on another Linux machine.
+# These small XCB/XKB protocol helpers are safe to ship alongside PyQt6.
+REQUIRED = (
+    "libxcb-cursor.so.0",
+    "libxcb-glx.so.0",
+    "libxcb-icccm.so.4",
+    "libxcb-image.so.0",
+    "libxcb-keysyms.so.1",
+    "libxcb-randr.so.0",
+    "libxcb-render-util.so.0",
+    "libxcb-render.so.0",
+    "libxcb-shape.so.0",
+    "libxcb-shm.so.0",
+    "libxcb-sync.so.1",
+    "libxcb-util.so.1",
+    "libxcb-xfixes.so.0",
+    "libxcb-xinerama.so.0",
+    "libxcb-xinput.so.0",
+    "libxcb-xkb.so.1",
+    "libxkbcommon-x11.so.0",
+    "libxkbcommon.so.0",
+)
 LINE = re.compile(r"^\\s*(\\S+)\\s+=>\\s+(\\S+)")
+CACHE = re.compile(r"^\\s*(\\S+)\\s+\\(libc6,x86-64\\)\\s+=>\\s+(\\S+)")
 
 
 def bundle(internal: Path) -> list[str]:
@@ -38,39 +61,44 @@ def bundle(internal: Path) -> list[str]:
     if result.returncode:
         raise RuntimeError(f"Cannot inspect bundled Qt XCB dependencies:\\n{result.stdout}\\n{result.stderr}")
 
-    copied = []
-    missing = []
+    # ldd gives paths for linked dependencies; ldconfig also finds Qt helpers
+    # that the plugin's runtime loader resolves but ldd does not enumerate.
+    linked = {}
     for line in result.stdout.splitlines():
         match = LINE.match(line)
-        if not match:
-            continue
-        soname, source = match.groups()
-        if not HELPER.fullmatch(soname):
-            continue
-        if source == "not":
-            missing.append(soname)
-            continue
-        src = Path(source)
-        if not src.is_file():
-            missing.append(soname)
-            continue
+        if match and match.group(2).startswith("/"):
+            linked[match.group(1)] = Path(match.group(2))
+    cache = subprocess.run(
+        ["ldconfig", "-p"], capture_output=True, text=True, check=True
+    )
+    host = {}
+    for line in cache.stdout.splitlines():
+        match = CACHE.match(line)
+        if match:
+            host.setdefault(match.group(1), Path(match.group(2)))
+
+    copied = []
+    missing = []
+    for soname in REQUIRED:
         dst = internal / soname
-        if dst.exists():
+        if dst.is_file():
             continue
-        # Avoid shipping an additional copy of anything already in the bundle.
-        if src.resolve().is_relative_to(internal):
+        # Don't assume an existing copy inside Qt6/lib is loader-visible
+        # from the packaged plugin: copy it to PyInstaller's _internal root.
+        candidates = [linked.get(soname), host.get(soname)]
+        candidates.extend(internal.glob("**/" + soname))
+        source = next((p for p in candidates if p and p.is_file()), None)
+        if source is None:
+            missing.append(soname)
             continue
-        shutil.copy2(src, dst, follow_symlinks=True)
+        shutil.copy2(source, dst, follow_symlinks=True)
         copied.append(soname)
 
     if missing:
         raise RuntimeError(
-            "Qt XCB helper libraries missing from build host: " + ", ".join(sorted(set(missing)))
+            "Qt XCB helper libraries missing from build host: " + ", ".join(missing)
             + ". Install the relevant libxcb-* and libxkbcommon-x11-0 packages before building."
         )
-    # The exact dependency that failed the first public AppImageHub test.
-    if not (internal / "libxcb-icccm.so.4").is_file():
-        raise RuntimeError("libxcb-icccm.so.4 must be bundled for AppImageHub/X11 compatibility")
     return sorted(copied)
 
 
