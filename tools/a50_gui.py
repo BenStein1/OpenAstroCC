@@ -1480,6 +1480,9 @@ class Window(QMainWindow):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) > 1 and sys.argv[1] == '--a50-audio-setup':
+        import a50_setup
+        sys.exit(a50_setup.main(sys.argv[2:]))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--snapshot', help='inspect a backup offline; hardware writes disabled')
     parser.add_argument('--smoke', action='store_true', help='read only, render, assert and exit')

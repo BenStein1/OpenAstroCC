@@ -9,6 +9,7 @@ import configparser
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 
 import a50
@@ -27,7 +28,8 @@ class Preset:
 
 
 def repo_root():
-    return Path(__file__).resolve().parent.parent
+    # PyInstaller extracts bundled presets to its _MEIPASS data directory.
+    return Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent.parent))
 
 
 def user_custom_dir():

@@ -6,6 +6,7 @@ These names are application metadata. They are NOT sent to the headset.
 import configparser
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 
@@ -72,7 +73,7 @@ def save_names(names):
 # .astroeq files are available only when the user already has a local copy.
 # Archived Windows app assets may exist in the ignored artifacts/ working tree.
 def preset_directories():
-    root = Path(__file__).resolve().parent.parent
+    root = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent.parent))
     dirs = [
         root / "presets",  # Factory defaults.
         root / "presets/custom",  # Bundled read-only custom curves.

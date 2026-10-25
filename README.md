@@ -1,5 +1,24 @@
 # Astro A50 Gen 3 for Linux
 
+## Downloadable AppImage and license
+
+This project is licensed under **GNU GPL version 3 only** (see [LICENSE](LICENSE)).
+You're free to use, share, modify and redistribute it under GPLv3, including
+commercially, without any warranty or support obligation. PyQt6's GPL version
+is why this can't simultaneously be marked "non-commercial only."
+
+Build the **x86_64 AppImage** locally in one command:
+`bash scripts/build_appimage_local.sh`, or download a successfully tested
+build artifact from the [GitHub Actions AppImage workflow](.github/workflows/appimage.yml)
+when hosted runners are available.
+It bundles Python, PyQt6/Qt, the app, preset files and complete license texts.
+The **About** dialog displays attribution notices and has an **orange Audio
+setup…** button. That action only installs WirePlumber configuration after
+showing a preview and receiving explicit confirmation.
+
+See [AppImage build and usage](docs/APPIMAGE.md) and
+[third-party attribution details](docs/THIRD_PARTY_NOTICES.md).
+
 Native HID settings client and PyQt6 app for USB **9886:0015**. Three EQ slots,
 frequency/bandwidth controls, default Game/Voice balance, brightness, alert
 volume, battery/charging, firmware identity, microphone/stream controls, and
