@@ -2,10 +2,11 @@
 
 Native HID settings client and PyQt6 app for USB **9886:0015**. Three EQ slots,
 frequency/bandwidth controls, default Game/Voice balance, brightness, alert
-volume, battery/charging and firmware identity are implemented. Thirty reversible
-hardware checks passed and restored the recovered baseline. Mic/stream controls,
-physical audio tests and persistence verification remain open; see
-[FEATURES](docs/FEATURES.md) for the precise ledger.
+volume, battery/charging, firmware identity, microphone/stream controls, and
+sidetone/noise-gate are implemented. Thirty-eight reversible hardware checks
+passed and restored the recovered baseline. Physical audio tests, sync (persist),
+and power-cycle verification remain open; see [FEATURES](docs/FEATURES.md) for
+the precise ledger.
 
 Run the app with the installed system Python:
 
@@ -13,11 +14,15 @@ Run the app with the installed system Python:
 /usr/bin/python3 tools/a50_gui.py
 ```
 
-Edits are staged until **Write working settings**. Every write saves a baseline,
-checks readback and retains exact TX/RX under ignored `artifacts/backups/`.
-Persistent save is a separate explicit action. JSON backup/import and per-slot
-`.astroeq` import/export are available. Current JSON backups cover EQ and the
-implemented dock settings, not microphone/stream settings yet.
+**Settings app only:** edits are staged until **Write working settings**. Every
+write saves a baseline, checks readback and retains exact TX/RX under ignored
+`artifacts/backups/`. Persistent save to headset storage is a separate explicit
+action. JSON backup/import and per-slot `.astroeq` import/export are available.
+JSON backups cover EQ, dock settings, microphone/stream controls, and noise gate.
+
+**Physical hardware:** the headset's physical Dolby button and Game/Voice mixer
+are independent; the Linux app does not replace those controls. USB device paths
+and stream routing are mapped for independent audio control.
 
 ```bash
 python3 tools/a50.py inventory
@@ -30,5 +35,4 @@ QT_QPA_PLATFORM=offscreen /usr/bin/python3 tools/a50_gui.py --snapshot /tmp/a50-
 [Native app behavior](docs/NATIVE-APP.md), [protocol evidence](docs/A50-PROTOCOL.md),
 [slot1 recovery](docs/EQ-RECOVERY.md), [continuation handoff](HANDOFF.md).
 Proprietary app artifacts and private captures stay ignored. No raw-command,
-firmware or reset control. Audio-profile switching and test sounds still await
-Ben's answer; no global configuration or services have been changed.
+firmware or reset control. Global audio configuration and services unchanged.
