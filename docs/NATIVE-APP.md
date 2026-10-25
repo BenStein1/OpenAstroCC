@@ -18,6 +18,41 @@ dock pages use sliders too. Control semantics and the write path are unchanged.
 The Game/Voice end labels follow the existing label order and are not yet
 confirmed against hardware. Offscreen check: `QT_QPA_PLATFORM=offscreen python3 tools/check_gui.py`.
 
+## Preset picker and custom EQ library
+
+The EQ header has a compact **Choose preset…** dropdown plus **Save preset…**.
+The list separates three categories:
+
+- **Astro:** the five shipped default `.astroeq` files in `presets/`; read-only.
+- **Example:** `presets/examples/Bass & Clarity.astroeq`, recreated from the
+  reported custom EQ 3 curve (gains +6/-2/0/+2/+4 dB at
+  90/406/783/4001/7001 Hz; all three bell widths 2.00 octaves); read-only.
+- **Mine:** writable personal presets stored in
+  `$XDG_DATA_HOME/astro-a50-linux/presets/` (default
+  `~/.local/share/astro-a50-linux/presets/`).
+
+Choosing a preset **only loads its values into the editor**. The headset is
+untouched until the existing **Write working settings** / **Save to headset**
+actions. For a preset previously read from the headset, the app matches its
+numeric settings to available preset files. Because Astro's Windows files
+round bandwidth, numeric identification tolerates up to 0.01 octave deviation;
+it still requires exact gains and frequencies and refuses ambiguous names.
+
+Editing any gain, frequency, or bell width labels it **(modified)**; if
+the starting preset had no known name, it displays **Custom (unsaved)**.
+This marker is about the preset *file*, independent of whether changes have
+been written to the headset. **Save preset…** saves a separate `.astroeq`
+file in **Mine**, prompting for a name. When editing a previously selected
+Mine preset, it asks whether to overwrite **that personal file** or save
+as a new one. Overwrites require an explicit affirmative answer. Bundled
+Astro/default/example files are never overwritten, and preset-file saving
+never sends a USB command.
+
+The supplied Bass & Clarity example rounds the original 1.99-octave bell
+to exactly **2.00**. Its file is available immediately in the dropdown;
+it is not silently written into the owner's existing headset slot. Select
+the example, then use the existing headset-write controls if desired.
+
 ## EQ slot names (local metadata)
 
 The hardware exposes three numbered EQ slots and their numeric parameters;
