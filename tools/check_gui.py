@@ -193,8 +193,38 @@ def run(live):
         assert not setup.install_button.isEnabled(), 'install must require preview'
         setup.close()
         about.close()
+
+        # Simulate a live but powered-off headset without sending USB traffic.
+        # The existing poll timer must switch to reconnect mode, writes must
+        # remain disabled, and reconnect must restore the normal controls.
+        window.offline = None
+        window.connected = True
+        window.update_enabled()
+        assert window.buttons['Test Current Settings'].isEnabled()
+        unavailable = "device error: status=01 code=16777221 message='HID_ERROR_SLAVE_NO_SLAVE'"
+        window.failed(unavailable)
+        assert not window.connected
+        assert window.status_label.text() == 'A50 base connected · Headset unavailable'
+        assert 'reconnect automatically' in window.notice.text()
+        assert not window.buttons['Test Current Settings'].isEnabled()
+        assert not window.buttons['Save to headset'].isEnabled()
+        assert window.timer.interval() == window.POLL_RETRY_MS
+        window.refreshed((before, None, None))
+        window.update_enabled()
+        assert window.connected
+        assert window.timer.interval() == window.POLL_STATUS_MS
+        assert window.buttons['Test Current Settings'].isEnabled()
+
+        # Unknown hardware failures and uncertain persistent saves must keep
+        # their warnings, rather than being mistaken for headset power-off.
+        window.failed("device error: status=01 code=16777222 message='OTHER_ERROR'")
+        assert window.status_label.text().startswith('A50 operation failed:')
+        window.persisting = True
+        window.failed(unavailable)
+        assert window.status_label.text().startswith('A50 operation failed:')
+        assert 'Save to headset may have completed' in window.notice.text()
         window.close()
-        print('PASS: offline EQ library, About/Notices and guarded audio setup controls')
+        print('PASS: offline GUI + unavailable headset, reconnect and genuine-error handling')
         return
     try:
         widget = window.eq[1][0][0]
