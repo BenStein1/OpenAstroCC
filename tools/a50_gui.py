@@ -1147,14 +1147,29 @@ class Window(QMainWindow):
 
     def failed(self, message):
         self.pending = None
-        if self.persisting:
+        was_persisting = self.persisting
+        if was_persisting:
             self.persisting = False
             message += (' (Save to headset may have completed: the headset can drop off USB for a few seconds '
                         'afterwards. Press Refresh / reconnect to check.)')
         self.connected = False
         self.identity = None
-        self.status_label.setText('A50 operation failed: ' + message)
-        self.notice.setText('Reconnect / refresh to read current device state. ' + message)
+
+        # The base answered our HID request but cannot reach the powered-off
+        # or unlinked headset. This is an ordinary unavailable state, not a
+        # protocol failure. Do not hide errors during persistent saves.
+        headset_unavailable = (not was_persisting and
+            "status=01 code=16777221 message='HID_ERROR_SLAVE_NO_SLAVE'" in message)
+        if headset_unavailable:
+            self.status_label.setText('A50 base connected · Headset unavailable')
+            self.notice.setText(
+                'Headset is off or not linked to the base. Turn it on or dock it; '
+                'OpenAstroCC will reconnect automatically. '
+                'Displayed settings may be from the last successful read.')
+        else:
+            self.status_label.setText('A50 operation failed: ' + message)
+            self.notice.setText('Reconnect / refresh to read current device state. ' + message)
+        # Keep writes disabled and use the existing three-second retry timer.
         self.update_enabled()
         if self.smoke:
             QApplication.instance().exit(1)
