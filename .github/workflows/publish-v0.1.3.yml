@@ -1,0 +1,72 @@
+name: Publish OpenAstroCC v0.1.3
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-v0.1.3.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    name: Publish tested AppImage as v0.1.3
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check source commit, build, and release state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GH_REPO" = "BenStein1/OpenAstroCC"
+          test "$(gh run view 41956073257 --json conclusion --jq '.conclusion')" = "success"
+          test "$(gh run view 41956073257 --json headSha --jq '.headSha')" = "a85774cb48057e9fced691973ab02c3380c202fe"
+          if gh release view v0.1.3 >/dev/null 2>&1; then
+            echo "OpenAstroCC v0.1.3 already exists; do not republish."
+            echo "SKIP_RELEASE=true" >> "$GITHUB_ENV"
+          fi
+      - name: Download tested AppImage from successful CI
+        if: env.SKIP_RELEASE != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh run download 41956073257 --name OpenAstroCC-x86_64 --dir dist
+      - name: Verify release assets
+        if: env.SKIP_RELEASE != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/OpenAstroCC-x86_64.AppImage
+          test -s dist/OpenAstroCC-x86_64.AppImage.sha256
+          (cd dist && sha256sum -c OpenAstroCC-x86_64.AppImage.sha256)
+      - name: Create v0.1.3 tag and GitHub release
+        if: env.SKIP_RELEASE != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'NOTES'
+          ## Changes
+
+          - Treat a powered-off Astro A50 Gen 3 as an ordinary unavailable-headset state rather than reporting a confusing HID error.
+          - Improve reconnect and HID error-state handling in the GUI.
+          - Extend automated checks covering headset-off status and reconnection behavior.
+
+          The AppImage and SHA256 checksum come from the successful November 5 GitHub Actions run (unit tests and GUI smoke checks).
+
+          **Full changelog:** https://github.com/BenStein1/OpenAstroCC/compare/v0.1.2...v0.1.3
+          NOTES
+          gh release create v0.1.3 \
+            dist/OpenAstroCC-x86_64.AppImage \
+            dist/OpenAstroCC-x86_64.AppImage.sha256 \
+            --target a85774cb48057e9fced691973ab02c3380c202fe \
+            --title 'OpenAstroCC v0.1.3' \
+            --notes-file release-notes.md \
+            --latest
+          test "$(gh api "repos/$GH_REPO/git/ref/tags/v0.1.3" --jq '.object.sha')" = "a85774cb48057e9fced691973ab02c3380c202fe"
